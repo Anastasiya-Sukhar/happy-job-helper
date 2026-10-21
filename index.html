@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Помощник по результатам Happy Job</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.10/pdfmake.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.10/vfs_fonts.js"></script>
 <style>
   :root{
     --bg:#f4f2fa; --card:#ffffff; --ink:#241c3f; --muted:#6b6390;
@@ -86,12 +88,6 @@
   .ctrl input[type=range]{width:200px;}
   .warnbox{background:var(--warn-bg); color:#7a4b00; border-radius:10px; padding:10px 14px; font-size:13px; margin-bottom:14px; display:none;}
   footer{max-width:1120px; margin:0 auto; padding:0 20px 40px; color:var(--muted); font-size:12px;}
-  @media print{
-    header{padding:14px 20px;} main{padding:8px;}
-    #uploadCard, .btnrow, .pick, .ctrl, footer{display:none !important;}
-    .card{box-shadow:none; break-inside:avoid;}
-    body{background:#fff;}
-  }
 </style>
 </head>
 <body>
@@ -146,7 +142,7 @@
       <p class="sub">Сгруппирован по скорости внедрения. Контроль — повторный замер метрик в следующем цикле Happy Job.</p>
       <div id="planBody"></div>
       <div class="btnrow">
-        <button class="act" id="printBtn">Печать / сохранить в PDF</button>
+        <button class="act" id="pdfBtn">Скачать план в PDF</button>
         <button class="act ghost" id="copyBtn">Скопировать план текстом</button>
       </div>
     </section>
@@ -558,6 +554,56 @@ function autoPick(){
   renderTools(REPORT, THRESHOLD); renderPlan(REPORT, THRESHOLD);
 }
 
+/* ---------- Сохранение плана в PDF ---------- */
+function buildPdf(R){
+  if(!R) return;
+  const content = [];
+  content.push({text:'План работы с подразделением' + (R.unit? ' — '+R.unit : ''), style:'title'});
+  const meta = [];
+  if(R.cycle) meta.push('по результатам Happy Job, '+R.cycle);
+  if(R.participation) meta.push('участие: '+R.participation.voted+' из '+R.participation.total+' ('+R.participation.pct+'%)');
+  if(R.eNPS!=null) meta.push('eNPS '+(R.eNPS>0?'+':'')+R.eNPS+'%');
+  if(meta.length) content.push({text: meta.join('  ·  '), style:'meta', margin:[0,2,0,6]});
+  let any = false;
+  PHASES.forEach((ph,pi)=>{
+    const items = [...SELECTED].map(w=>SCENARIOS.find(s=>s.when===w)).filter(s=>s && phaseOf(s.speed)===pi);
+    if(!items.length) return;
+    any = true;
+    content.push({text: ph.t+' ('+ph.w+')', style:'phase', margin:[0,10,0,4]});
+    items.forEach((s,n)=>{
+      const m = R.metrics && R.metrics[s.metric];
+      const weak = m? m.subs.filter(x=>x.score!=null && x.score<THRESHOLD).map(x=>x.name+' ('+x.score.toFixed(1)+')') : [];
+      content.push({text:(n+1)+'. '+s.when.charAt(0).toUpperCase()+s.when.slice(1), style:'action', margin:[0,5,0,1]});
+      content.push({text:'Метрика-цель: '+s.metric+(m&&m.score!=null? ' (текущий балл '+m.score.toFixed(1)+')':'')
+        +'  ·  срок: ~'+s.speed+' мес  ·  сложность: '+s.complexity+'/3'+(s.quick?'  ·  быстрая победа':''), margin:[0,0,0,2]});
+      const tools = catalogFor(s.metric);
+      if(tools.length){
+        const tArr = [{text:'Инструменты: '}];
+        tools.forEach((t,i)=>{
+          if(i) tArr.push({text:', '});
+          tArr.push(t.link? {text:t.name, link:t.link, color:'#4b1fb8'} : {text:t.name});
+        });
+        content.push({text:tArr, margin:[0,0,0,2]});
+      }
+      content.push({text:'Контроль: рост '+(weak.length? 'субметрик '+weak.join(', ') : 'метрики «'+s.metric+'»')+' — по следующему циклу HJ.', margin:[0,0,0,2]});
+    });
+  });
+  if(!any) content.push({text:'Не выбрано ни одного действия для плана. Отметьте карточки «В план» в разделе 2.', style:'meta', margin:[0,8,0,0]});
+  content.push({text:'Сформировано помощником по результатам Happy Job. Источник: матрица «Инструменты развития (V1)» и каталог инструментов компании.', style:'foot', margin:[0,14,0,0]});
+  pdfMake.createPdf({
+    pageSize:'A4', pageMargins:[40,42,40,48],
+    defaultStyle:{font:'Roboto', fontSize:10.5, lineHeight:1.25, color:'#241c3f'},
+    styles:{
+      title:{fontSize:17, bold:true, margin:[0,0,0,2]},
+      meta:{fontSize:9.5, color:'#6b6390'},
+      phase:{fontSize:13, bold:true, color:'#4b1fb8'},
+      action:{fontSize:11, bold:true},
+      foot:{fontSize:8.5, color:'#6b6390'}
+    },
+    content
+  }).download('План Happy Job — '+(R.unit||'подразделение')+'.pdf');
+}
+
 /* ---------- Загрузка файла ---------- */
 const drop = document.getElementById('drop'), fileInput = document.getElementById('file'), status = document.getElementById('status');
 drop.onclick = ()=> fileInput.click();
@@ -593,7 +639,7 @@ document.getElementById('thr').oninput = e=>{
   if(REPORT){ renderMetrics(REPORT, THRESHOLD); renderTools(REPORT, THRESHOLD); renderPlan(REPORT, THRESHOLD); }
 };
 document.getElementById('autoPick').onclick = autoPick;
-document.getElementById('printBtn').onclick = ()=> window.print();
+document.getElementById('pdfBtn').onclick = ()=> buildPdf(REPORT);
 document.getElementById('copyBtn').onclick = async e=>{
   try{ await navigator.clipboard.writeText(planText(REPORT)); e.target.textContent='Скопировано ✓'; setTimeout(()=>e.target.textContent='Скопировать план текстом',1800); }
   catch(_){ alert(planText(REPORT)); }
