@@ -4,6 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Помощник по результатам Happy Job</title>
+<!-- Библиотеки подключаются с CDN: они нужны только для ЧТЕНИЯ PDF и сборки PDF-плана.
+     Данные отчёта никуда не отправляются — весь разбор идёт локально в браузере. -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.10/pdfmake.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.10/vfs_fonts.js"></script>
@@ -15,39 +17,69 @@
   }
   *{box-sizing:border-box; margin:0; padding:0;}
   body{font-family:'Segoe UI', system-ui, -apple-system, Arial, sans-serif; background:var(--bg); color:var(--ink); line-height:1.45;}
-  header{background:linear-gradient(120deg,#4b1fb8, #7b2fd4 55%, #b44df0); color:#fff; padding:26px 32px;}
-  header h1{font-size:24px; font-weight:700;}
-  header p{opacity:.9; font-size:14px; margin-top:4px; max-width:900px;}
+  /* ---------- Шапка / первый экран ---------- */
+  header{background:linear-gradient(120deg,#4b1fb8, #7b2fd4 55%, #b44df0); color:#fff; padding:30px 32px 24px;}
+  header h1{font-size:26px; font-weight:700;}
+  header .lead{opacity:.94; font-size:14.5px; margin-top:8px; max-width:920px;}
+  .steps{display:flex; gap:12px; margin-top:18px; flex-wrap:wrap;}
+  .step{display:flex; align-items:center; gap:9px; background:rgba(255,255,255,.13); border:1px solid rgba(255,255,255,.28);
+    border-radius:10px; padding:8px 14px; font-size:13.5px; font-weight:600;}
+  .step .ic{font-size:17px;}
+  .step .st{font-size:11px; opacity:.75; font-weight:400; display:block;}
+  .step.done{background:#fff; color:#4b1fb8;}
+  .step.done .st{color:#1e9e5a; opacity:1;}
+  /* ---------- Навигация по разделам ---------- */
+  .toc{position:sticky; top:0; z-index:20; background:#fff; border-bottom:1px solid var(--line);
+    display:flex; gap:4px; padding:8px 16px; flex-wrap:wrap; justify-content:center;}
+  .toc a{color:var(--muted); text-decoration:none; font-size:13px; font-weight:600; padding:5px 12px; border-radius:8px;}
+  .toc a:hover{background:var(--chip); color:var(--accent);}
+  .toc a.off{opacity:.4; pointer-events:none;}
   main{max-width:1120px; margin:0 auto; padding:24px 20px 60px;}
   .card{background:var(--card); border:1px solid var(--line); border-radius:14px; padding:20px 22px; margin-bottom:18px; box-shadow:0 1px 4px rgba(40,20,90,.05);}
   h2{font-size:18px; margin-bottom:4px;}
   h2 .num{display:inline-flex; align-items:center; justify-content:center; width:26px; height:26px; border-radius:50%; background:var(--accent); color:#fff; font-size:14px; margin-right:8px; vertical-align:2px;}
   .sub{color:var(--muted); font-size:13px; margin-bottom:14px;}
-  /* upload */
-  #drop{border:2px dashed #b9a8ec; border-radius:16px; background:#faf8ff; padding:44px 20px; text-align:center; cursor:pointer; transition:.15s;}
+  .sub b{color:var(--ink);}
+  /* ---------- Загрузка ---------- */
+  #drop{border:2px dashed #b9a8ec; border-radius:16px; background:#faf8ff; padding:40px 20px; text-align:center; cursor:pointer; transition:.15s;}
   #drop.hover{background:#f0eaff; border-color:var(--accent);}
   #drop .big{font-size:17px; font-weight:600;}
   #drop .hint{color:var(--muted); font-size:13px; margin-top:6px;}
   #drop kbd{background:var(--chip); border-radius:6px; padding:2px 10px; color:var(--accent); font-weight:600;}
   #status{margin-top:14px; font-size:14px; color:var(--muted);}
   .err{color:var(--bad); font-weight:600;}
-  /* summary */
-  .idx-grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); gap:12px; margin-top:8px;}
+  .upload-help{display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:12px; margin-top:16px;}
+  .uh{border:1px solid var(--line); border-radius:10px; padding:12px 14px; font-size:13px; color:var(--muted);}
+  .uh b{display:block; color:var(--ink); font-size:13.5px; margin-bottom:4px;}
+  /* ---------- Пустое состояние (до загрузки) ---------- */
+  .empty-prev{display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); gap:12px; margin-top:8px;}
+  .ep{border:1px dashed #cfc4ef; border-radius:12px; padding:16px; background:#faf9ff;}
+  .ep .ic{font-size:22px;}
+  .ep b{display:block; margin:6px 0 4px; font-size:14.5px;}
+  .ep span{font-size:12.5px; color:var(--muted);}
+  /* ---------- Сводка-дашборд ---------- */
+  .verdict{border-left:4px solid var(--accent); background:#faf9ff; border-radius:0 10px 10px 0; padding:12px 16px; margin:14px 0; font-size:14px;}
+  .idx-grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:12px; margin-top:8px;}
   .idx{border:1px solid var(--line); border-radius:12px; padding:14px 16px;}
-  .idx .lbl{font-size:12px; color:var(--muted); text-transform:uppercase; letter-spacing:.4px;}
+  .idx .lbl{font-size:11.5px; color:var(--muted); text-transform:uppercase; letter-spacing:.4px;}
   .idx .val{font-size:30px; font-weight:700; margin:2px 0;}
   .idx .grp{font-size:12px; color:var(--muted);}
   .stack{display:flex; height:10px; border-radius:5px; overflow:hidden; margin-top:8px;}
   .stack div{height:100%;}
   .legend{display:flex; gap:14px; font-size:12px; color:var(--muted); margin-top:6px; flex-wrap:wrap;}
   .legend i{display:inline-block; width:10px; height:10px; border-radius:3px; margin-right:4px; vertical-align:-1px;}
-  /* metrics table */
+  .scale-legend{display:flex; gap:10px; flex-wrap:wrap; margin-top:10px; font-size:12.5px; color:var(--muted);}
+  .scale-legend span{border:1px solid var(--line); border-radius:8px; padding:4px 10px; background:#fbfaff;}
+  /* ---------- Таблица метрик ---------- */
+  .table-wrap{overflow-x:auto;}
   table{width:100%; border-collapse:collapse; font-size:14px;}
-  th{font-size:12px; text-transform:uppercase; letter-spacing:.4px; color:var(--muted); text-align:left; padding:8px 10px; border-bottom:2px solid var(--line);}
+  th{font-size:12px; text-transform:uppercase; letter-spacing:.4px; color:var(--muted); text-align:left; padding:8px 10px; border-bottom:2px solid var(--line); white-space:nowrap;}
   td{padding:9px 10px; border-bottom:1px solid var(--line); vertical-align:middle;}
   tr:last-child td{border-bottom:none;}
+  .mdesc{font-size:12.5px; color:var(--muted); margin-top:2px;}
   .score-pill{display:inline-block; min-width:46px; text-align:center; font-weight:700; border-radius:8px; padding:4px 8px; color:#fff;}
-  .imp-bar{background:#eee9fa; border-radius:5px; height:9px; width:130px; position:relative; min-width:130px;}
+  .deviation{font-weight:700; font-size:13.5px; white-space:nowrap;}
+  .imp-bar{background:#eee9fa; border-radius:5px; height:9px; width:120px; position:relative; min-width:120px;}
   .imp-bar span{position:absolute; left:0; top:0; bottom:0; border-radius:5px; background:linear-gradient(90deg,#8a4ff0,#b44df0);}
   .tag{display:inline-block; background:var(--chip); color:var(--accent); border-radius:6px; padding:2px 8px; font-size:12px; font-weight:600; margin:1px 2px;}
   .tag.green{background:var(--ok-bg); color:var(--ok);}
@@ -59,11 +91,12 @@
   .sub-chip{border-radius:8px; padding:5px 10px; font-size:13px; border:1px solid var(--line);}
   .sub-chip b{font-weight:700;}
   .noTools{font-size:13px; color:var(--warn); background:var(--warn-bg); border-radius:8px; padding:8px 12px; display:inline-block; margin-top:6px;}
-  /* tool cards */
+  select.sortsel{border:1.5px solid var(--line); border-radius:8px; padding:5px 10px; font-size:13px; color:var(--ink); background:#fff;}
+  /* ---------- Карточки инструментов ---------- */
   .tool-list{display:grid; grid-template-columns:repeat(auto-fill,minmax(330px,1fr)); gap:14px; margin-top:10px;}
   .tool{border:1px solid var(--line); border-radius:12px; padding:14px 16px; position:relative;}
   .tool.on{border-color:var(--accent); box-shadow:0 0 0 2px #e8ddff;}
-  .tool h4{font-size:15px; margin-bottom:6px; padding-right:64px;}
+  .tool h4{font-size:15px; margin-bottom:6px; padding-right:70px;}
   .tool .meta{font-size:12.5px; color:var(--muted); margin-top:8px;}
   .tool .links{margin-top:10px; border-top:1px dashed var(--line); padding-top:8px;}
   .tool .links a{display:block; font-size:13px; color:var(--accent); text-decoration:none; margin:3px 0;}
@@ -71,8 +104,11 @@
   .tool .links .mod{font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:.3px; margin-top:6px;}
   .pick{position:absolute; top:12px; right:12px; font-size:12px; border:1.5px solid var(--accent); color:var(--accent); background:#fff; border-radius:8px; padding:3px 10px; cursor:pointer; font-weight:600;}
   .tool.on .pick{background:var(--accent); color:#fff;}
-  .why{font-size:12px; color:var(--muted); margin-top:6px; font-style:italic;}
-  /* plan */
+  details.whyd{margin-top:8px; font-size:12.5px;}
+  details.whyd summary{cursor:pointer; color:var(--accent); font-weight:600;}
+  details.whyd ul{margin:6px 0 0 18px; color:var(--muted);}
+  details.whyd li{margin:3px 0;}
+  /* ---------- План ---------- */
   .phase{margin-top:18px;}
   .phase h3{font-size:16px; margin-bottom:8px;}
   .phase .when{color:var(--accent);}
@@ -80,73 +116,200 @@
   .plan-item .act{font-weight:600; font-size:15px;}
   .plan-item .row{font-size:13px; margin-top:5px;}
   .plan-item a{color:var(--accent);}
+  .next-steps{border:1px solid var(--line); border-radius:12px; padding:14px 16px; margin-top:18px; background:#fbfaff; font-size:13.5px;}
+  .next-steps ol{margin:8px 0 0 18px;}
+  .next-steps li{margin:4px 0;}
+  .next-steps .timeline{font-size:12.5px; color:var(--muted); margin-top:6px;}
+  .mat-list{margin:6px 0 0 18px; font-size:13.5px;}
+  .mat-list li{margin:4px 0;}
+  .mat-list .src{color:var(--muted); font-size:12.5px;}
   .btnrow{display:flex; gap:10px; margin-top:16px; flex-wrap:wrap;}
   button.act{background:var(--accent); border:none; color:#fff; border-radius:10px; padding:10px 18px; font-size:14px; font-weight:600; cursor:pointer;}
   button.act.ghost{background:#fff; color:var(--accent); border:1.5px solid var(--accent);}
   button.act:hover{filter:brightness(1.07);}
   .ctrl{display:flex; align-items:center; gap:12px; margin:6px 0 16px; font-size:14px; flex-wrap:wrap;}
-  .ctrl input[type=range]{width:200px;}
+  .ctrl input[type=range]{width:190px;}
   .warnbox{background:var(--warn-bg); color:#7a4b00; border-radius:10px; padding:10px 14px; font-size:13px; margin-bottom:14px; display:none;}
+  /* ---------- FAQ ---------- */
+  .faq details{border:1px solid var(--line); border-radius:10px; padding:10px 14px; margin-bottom:8px; background:#fbfaff;}
+  .faq summary{cursor:pointer; font-weight:600; font-size:14px;}
+  .faq p{font-size:13.5px; color:var(--muted); margin-top:8px;}
   footer{max-width:1120px; margin:0 auto; padding:0 20px 40px; color:var(--muted); font-size:12px;}
+  /* ---------- Адаптивность ---------- */
+  @media (max-width:860px){
+    header{padding:22px 18px;}
+    main{padding:16px 12px 50px;}
+    .card{padding:16px 14px;}
+    .tool-list{grid-template-columns:1fr;}
+    .idx-grid{grid-template-columns:repeat(2,1fr);}
+    .toc{justify-content:flex-start; overflow-x:auto; flex-wrap:nowrap;}
+  }
 </style>
 </head>
 <body>
+<!-- ========== ПЕРВЫЙ ЭКРАН: что это и зачем ========== -->
 <header>
   <h1>Помощник по результатам Happy Job</h1>
-  <p>Загрузите PDF-отчёт Happy Job по подразделению — помощник разберёт метрики, определит приоритеты, подберёт инструменты развития из базы компании и соберёт план работы руководителя с подразделением.</p>
+  <p class="lead">Инструмент для руководителя подразделения. Загрузите PDF-отчёт Happy Job — за пару минут вы получите:
+  приоритетные метрики вовлечённости, готовую подборку инструментов развития из базы компании и план работы с подразделением.
+  Отчёт разбирается прямо в браузере — данные не покидают ваш компьютер.</p>
+  <div class="steps">
+    <div class="step" id="st1"><span class="ic">📄</span><span>1. Загрузите отчёт<span class="st">PDF с платформы Happy Job</span></span></div>
+    <div class="step" id="st2"><span class="ic">📊</span><span>2. Получите приоритеты<span class="st">10 метрик, важность, зоны внимания</span></span></div>
+    <div class="step" id="st3"><span class="ic">📋</span><span>3. Заберите план<span class="st">инструменты + план в PDF</span></span></div>
+  </div>
 </header>
-<main>
 
-  <section class="card" id="uploadCard">
-    <h2>1. Загрузите отчёт</h2>
-    <p class="sub">PDF-отчёт исследования Happy Job по подразделению (выгрузка с платформы).</p>
+<!-- ========== Оглавление по разделам ========== -->
+<nav class="toc">
+  <a href="#upload">1 · Загрузка</a>
+  <a href="#summary" class="off">2 · Сводка</a>
+  <a href="#metrics" class="off">3 · Метрики</a>
+  <a href="#tools" class="off">4 · Инструменты</a>
+  <a href="#plan" class="off">5 · План</a>
+  <a href="#materials">Материалы</a>
+  <a href="#faq">Вопросы</a>
+</nav>
+
+<main>
+  <!-- ========== ШАГ 1: ЗАГРУЗКА PDF ========== -->
+  <section class="card" id="upload">
+    <h2><span class="num">1</span>Загрузите отчёт Happy Job</h2>
+    <p class="sub">Нужна PDF-выгрузка <b>результатов исследования Happy Job по вашему подразделению</b> — тот самый файл, который открывается после закрытия цикла опроса.</p>
     <div id="drop">
       <div class="big">Перетащите PDF-файл сюда или <kbd>выберите файл</kbd></div>
-      <div class="hint">Обработка происходит локально в браузере — данные никуда не отправляются.<br>Требуется подключение к интернету только для библиотеки чтения PDF.</div>
+      <div class="hint">Обработка происходит локально в браузере — данные никуда не отправляются.<br>Подключение к интернету нужно только для загрузки библиотеки чтения PDF.</div>
       <input type="file" id="file" accept="application/pdf" hidden>
     </div>
     <div id="status"></div>
+    <div class="upload-help">
+      <div class="uh"><b>Какой файл нужен</b>PDF-отчёт по подразделению: внутри — «Карта метрик», приоритеты и группы сотрудников. Обычно 30–50 страниц.</div>
+      <div class="uh"><b>Где его взять</b>В личном кабинете Happy Job: раздел «Результаты» (опросы вашего подразделения) → кнопка выгрузки отчёта в PDF. Подробно — в «Гайде по личному кабинету Happy Job» (см. «Материалы»).</div>
+      <div class="uh"><b>Если файл не тот</b>Помощник проверит структуру отчёта. Если это другой PDF, вы увидите понятное сообщение об ошибке — просто выберите нужный файл.</div>
+    </div>
   </section>
 
+  <!-- ========== ПУСТОЕ СОСТОЯНИЕ: что появится после загрузки ========== -->
+  <section class="card" id="emptyState">
+    <h2>Что появится после загрузки</h2>
+    <p class="sub">Пока отчёт не загружен, ниже — краткий анонс разделов. Всё заполнится автоматически из вашего PDF.</p>
+    <div class="empty-prev">
+      <div class="ep"><span class="ic">📊</span><b>Сводка по подразделению</b><span>eNPS, вовлечённость, средний балл и вывод «что это значит для вас»</span></div>
+      <div class="ep"><span class="ic">🎯</span><b>10 метрик: на что влиять</b><span>баллы, важность для сотрудников и зоны внимания — простыми словами</span></div>
+      <div class="ep"><span class="ic">🧰</span><b>Инструменты компании</b><span>подборка по вашей ситуации: почему рекомендован каждый инструмент</span></div>
+      <div class="ep"><span class="ic">📋</span><b>Готовый план работы</b><span>по шагам и срокам, с ответственными и контролем результата — в PDF</span></div>
+    </div>
+  </section>
+
+  <!-- ========== ВСЁ НИЖЕ — ПОЯВЛЯЕТСЯ ПОСЛЕ ЗАГРУЗКИ ========== -->
   <div id="report" hidden>
-    <section class="card">
-      <h2><span class="num">✓</span>Сводка по подразделению</h2>
+
+    <section class="card" id="summary">
+      <h2><span class="num">2</span>Сводка по подразделению</h2>
+      <p class="sub">Ключевые цифры отчёта. <b>eNPS</b> — индекс лояльности: доля сотрудников, готовых рекомендовать компанию, минус доля критикующих (чем выше, тем лучше; от +50% — отличный уровень).</p>
       <p class="sub" id="unitLine"></p>
       <div class="idx-grid" id="idxGrid"></div>
+      <!-- ДАННЫЕ ИЗ PDF: текстовый вывод ниже генерируется по метрикам, приоритетам и eNPS из отчёта -->
+      <div class="verdict" id="verdict"></div>
+      <div class="scale-legend">
+        <b style="align-self:center;">Шкала баллов:</b>
+        <span><i style="background:var(--bad);"></i> ниже 7 — критично</span>
+        <span><i style="background:var(--warn);"></i> 7–8 — зона внимания</span>
+        <span><i style="background:#3fa66d;"></i> 8–8.5 — хорошо</span>
+        <span><i style="background:var(--ok);"></i> выше 8.5 — отлично</span>
+        <span><i style="background:var(--warn);"></i> оранжевая подсветка — ниже вашего порога внимания</span>
+      </div>
       <div id="groupDetails" style="margin-top:14px;"></div>
     </section>
 
-    <section class="card">
-      <h2><span class="num">1</span>Метрики: на что влиять</h2>
-      <p class="sub">10 метрик вовлечённости. Важность — доля сотрудников, отметивших метрику как приоритетную для улучшения (из отчёта HJ). Цвет балла — по шкале HJ: &lt;7 критично, 7–8 зона внимания, 8–8.5 хорошо, &gt;8.5 отлично.</p>
+    <section class="card" id="metrics">
+      <h2><span class="num">3</span>Метрики: на что влиять</h2>
+      <p class="sub">10 метрик вовлечённости Happy Job (каждая собирается из 5 субметрик-вопросов, балл — средний по сотрудникам, шкала 1–10).
+      <b>Важность</b> — доля сотрудников, отметивших метрику как приоритетную для улучшения. <b>До порога</b> — отставание балла от порога внимания.</p>
       <div class="ctrl">
         <label for="thr">Порог внимания по баллу: <b id="thrVal">8.0</b></label>
         <input type="range" id="thr" min="7" max="9" step="0.1" value="8">
-        <span style="color:var(--muted); font-size:12.5px;">субметрики и метрики ниже порога подсвечиваются и попадают в подборку</span>
+        <span style="color:var(--muted); font-size:12.5px;">метрики ниже порога подсвечиваются и попадают в автоотбор плана</span>
       </div>
-      <div id="metricsTable"></div>
+      <div class="ctrl">
+        <label for="metricSort" style="font-size:13px; color:var(--muted);">Порядок метрик:</label>
+        <select class="sortsel" id="metricSort">
+          <option value="critical">сначала критичные (низкий балл)</option>
+          <option value="importance">сначала важные сотрудникам</option>
+          <option value="hj">как в отчёте Happy Job</option>
+        </select>
+      </div>
+      <div class="table-wrap" id="metricsTable"></div>
       <div id="influenceNote" style="margin-top:14px;"></div>
     </section>
 
-    <section class="card">
-      <h2><span class="num">2</span>Подобранные инструменты</h2>
-      <p class="sub">Сценарии из матрицы инструментов, отсортированные по влиянию на приоритетные метрики. Учитываются: важность метрики для сотрудников, отставание от порога, влияние на eNPS/MPS, применимость к группам вашего подразделения, скорость и сложность. Карточки, отмеченные «В плане», попадают в план работы.</p>
+    <section class="card" id="tools">
+      <h2><span class="num">4</span>Подобранные инструменты</h2>
+      <p class="sub">Сценарии из матрицы «Инструменты развития» компании, подобранные под вашу ситуацию. Карточки, отмеченные «В плане», попадают в план работы.
+      <b>MPS</b> — влияние на средний балл метрик вовлечённости, <b>eNPS</b> — на готовность рекомендовать компанию, <b>tNPS</b> (в гайде компании — mNPS) — на готовность рекомендовать руководителя (шкала 1–3).</p>
       <div class="btnrow" style="margin-top:0; margin-bottom:14px;">
-        <button class="act ghost" id="autoPick">Автоотбор: топ-8 в план</button>
+        <button class="act ghost" id="autoPick">Автоотбор в план</button>
+        <span style="align-self:center; font-size:12.5px; color:var(--muted);">3–6 направлений по гайду компании; учитывает важность метрик, отставание от порога, влияние на eNPS/MPS и скорость</span>
       </div>
       <div class="tool-list" id="toolList"></div>
     </section>
 
-    <section class="card">
-      <h2><span class="num">3</span>План работы с подразделением</h2>
-      <p class="sub">Сгруппирован по скорости внедрения. Контроль — повторный замер метрик в следующем цикле Happy Job.</p>
+    <section class="card" id="plan">
+      <h2><span class="num">5</span>План работы с подразделением</h2>
+      <p class="sub">Действия сгруппированы по скорости внедрения. Для каждого пункта: какая метрика улучшается, кто отвечает, как измеряем результат и когда повторный замер.</p>
       <div id="planBody"></div>
+      <div class="next-steps" id="nextSteps">
+        <b>Что дальше — план действий по гайду компании</b>
+        <div class="timeline">Цикл работы с вовлечённостью: опрос Happy Job → презентация результатов команде → быстрые решения на уровне подразделения → системные изменения по компании.</div>
+        <ol>
+          <li>Покажите результаты команде — презентация итогов внутри подразделения (фрейм встречи «Мастерская по работе с вовлечённостью» — в материалах компании).</li>
+          <li>Совместно выберите <b>3–6 субметрик</b>, на которые можно повлиять на уровне подразделения, — помощник подсвечивает их ниже порога в разделе «Метрики».</li>
+          <li>Составьте план работ в подразделении — раздел выше готов, отредактируйте под свою команду.</li>
+          <li>Закрепите ответственных и сроки в системе Happy Job.</li>
+          <li>Выберите 3 субметрики, которые нужно менять на уровне всей компании, и зафиксируйте их с вашим HR BP.</li>
+          <li>Поставьте встречи раз в квартал с вашим HR BP для оценки следования плану.</li>
+        </ol>
+      </div>
       <div class="btnrow">
         <button class="act" id="pdfBtn">Скачать план в PDF</button>
         <button class="act ghost" id="copyBtn">Скопировать план текстом</button>
       </div>
     </section>
   </div>
+
+  <!-- ========== МАТЕРИАЛЫ КОМПАНИИ (из гайда «Happy Job для руководителей») ========== -->
+  <section class="card" id="materials">
+    <h2>Материалы компании</h2>
+    <p class="sub">Из гайда «Happy Job для руководителей по итогам исследования». Ссылки доступны на внутреннем портале компании — спросите у вашего HR BP.</p>
+    <ul class="mat-list">
+      <li>Портал по работе с вовлечённостью</li>
+      <li>Курс «Вовлекай команду на все 100%»</li>
+      <li>Toolkit для развития себя и команды — варианты проведения обсуждений в команде</li>
+      <li>Гайд по личному кабинету Happy Job</li>
+      <li>Гайд по плану работ Happy Job</li>
+      <li>Фрейм проведения встречи в команде «Мастерская по работе с вовлечённостью»</li>
+      <li>Цикл вебинаров о работе с вовлечённостью</li>
+    </ul>
+  </section>
+
+  <!-- ========== ЧАСТЫЕ ВОПРОСЫ ========== -->
+  <section class="card faq" id="faq">
+    <h2>Частые вопросы</h2>
+    <details><summary>Что это за метрики?</summary>
+      <p>Happy Job измеряет вовлечённость по 10 метрикам (Руководитель, Стратегия, Признание, Обратная связь, Процессы, Изменения, Коллеги, Баланс, Карьера, Условия и оплата). Каждая метрика — это 5 субметрик-вопросов; итоговый балл считается по ответам всех сотрудников по шкале 1–10.</p></details>
+    <details><summary>Откуда берётся «порог внимания»?</summary>
+      <p>Это настройка под вас: балл, ниже которого метрика считается зоной внимания. По умолчанию 8.0 — уровень «хорошо» по шкале Happy Job. Двигая ползунок, вы управляете тем, какие метрики и субметрики подсвечиваются и попадают в автоотбор плана.</p></details>
+    <details><summary>Можно ли доверять рекомендациям?</summary>
+      <p>Подбор основан на двух источниках: вашем отчёте (баллы, приоритеты, состав групп) и матрице компании «Инструменты развития (V1)» — 43 сценария применения с оценкой влияния. Это обоснованная отправная точка, но финальное решение и контекст команды — за руководителем.</p></details>
+    <details><summary>Куда уходят данные моего отчёта?</summary>
+      <p>Никуда. PDF разбирается прямо в браузере, отправки на сервер нет. Интернет нужен только для загрузки библиотеки чтения PDF с публичного CDN.</p></details>
+    <details><summary>Как часто обновлять план?</summary>
+      <p>После каждого цикла Happy Job: загрузите свежий отчёт, сравните баллы с прошлым планом и соберите новый. Обычно циклы проходят раз в полгода или год.</p></details>
+    <details><summary>Как помощник связан с гайдом компании?</summary>
+      <p>Помощник автоматизирует «План действий» из гайда «Happy Job для руководителей»: выбор 3–6 субметрик для работы и составление плана. Бенчмарки компании в сводке — из итогов исследования 2024 года: вовлечённость 91,6%, лояльность 88,5%, eNPS 54,0%, mNPS 69,9%, удовлетворённость 93,5%.</p></details>
+    <details><summary>Почему у некоторых метрик нет инструментов?</summary>
+      <p>В матрице компании пока нет готовых сценариев для части метрик (например, «Стратегия»). Для них помощник подсказывает общий ориентир — работа с целями и видением команды.</p></details>
+  </section>
 
   <div class="warnbox" id="warnbox"></div>
 </main>
@@ -159,20 +322,23 @@ const DATA = JSON.parse(document.getElementById('data').textContent);
 const SCENARIOS = DATA.scenarios, CATALOG = DATA.catalog;
 pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
-/* ---------- Канонический список метрик HJ и их субметрик ---------- */
+/* ---------- Канонический список метрик HJ и их субметрик ----------
+   desc — пояснение простыми словами для руководителя (показывается в таблице метрик). */
 const METRICS = [
-  {name:'Руководитель',      subs:['Четкость','Доверие','Лидерство','Продуктивность','Совещания']},
-  {name:'Стратегия',         subs:['Знание','Достижимость','Актуализация','Оценка','Инициативность']},
-  {name:'Признание',         subs:['Частота','Обоснование','Своевременность','Культура','Искренность']},
-  {name:'Обратная связь',    subs:['Частота','Структура','Результат','Диалог','Конструктив']},
-  {name:'Процессы',          subs:['Ресурсы','Клиенты','Интерес','Диалог','Инициативность']},
-  {name:'Изменения',         subs:['Информация','Барьеры','Планирование','Ресурсы','Оценка']},
-  {name:'Коллеги',           subs:['Отношения','Взаимопонимание','Коммуникации','Правила','Взаимодействие']},
-  {name:'Баланс',            subs:['Питание','Счастье','Стресс','Фитнес','Баланс']},
-  {name:'Карьера',           subs:['Понятность','Автономность','Обучение','Реализация','Наставничество']},
-  {name:'Условия и оплата',  subs:['Оплата','Льготы','Условия труда','Безопасность','Комфорт труда']}
+  {name:'Руководитель',      desc:'сотрудники доверяют руководителю и получают от него полезную поддержку', subs:['Четкость','Доверие','Лидерство','Продуктивность','Совещания']},
+  {name:'Стратегия',         desc:'сотрудники понимают цели компании и видят связь своей работы с ними', subs:['Знание','Достижимость','Актуализация','Оценка','Инициативность']},
+  {name:'Признание',         desc:'сотрудники чувствуют, что их вклад замечают и ценят', subs:['Частота','Обоснование','Своевременность','Культура','Искренность']},
+  {name:'Обратная связь',    desc:'сотрудники регулярно получают полезную обратную связь о своей работе', subs:['Частота','Структура','Результат','Диалог','Конструктив']},
+  {name:'Процессы',          desc:'рабочие процессы удобны, ресурсов хватает для качественной работы', subs:['Ресурсы','Клиенты','Интерес','Диалог','Инициативность']},
+  {name:'Изменения',         desc:'команда информирована о изменениях и получает поддержку в период перемен', subs:['Информация','Барьеры','Планирование','Ресурсы','Оценка']},
+  {name:'Коллеги',           desc:'в команде хорошая атмосфера и взаимопомощь', subs:['Отношения','Взаимопонимание','Коммуникации','Правила','Взаимодействие']},
+  {name:'Баланс',            disp:'Баланс работы и жизни', desc:'сотрудники сохраняют баланс работы и отдыха, уровень стресса под контролем', subs:['Питание','Счастье','Стресс','Фитнес','Баланс']},
+  {name:'Карьера',           desc:'сотрудники видят возможности роста и развития в компании', subs:['Понятность','Автономность','Обучение','Реализация','Наставничество']},
+  {name:'Условия и оплата',  disp:'Условия и оплата труда', desc:'сотрудников устраивают оплата труда, льготы и условия работы', subs:['Оплата','Льготы','Условия труда','Безопасность','Комфорт труда']}
 ];
 const METRIC_BY_NAME = {}; METRICS.forEach(m=>METRIC_BY_NAME[m.name]=m);
+/* Отображаемое имя метрики — по терминологии гайда компании (name — каноническое, для разбора PDF) */
+function dname(n){ return (METRIC_BY_NAME[n] && METRIC_BY_NAME[n].disp) || n; }
 
 /* Модули каталога (Лист 2) по метрикам */
 const METRIC_MODULES = {
@@ -188,7 +354,7 @@ const METRIC_MODULES = {
   'Стратегия':         ['Развитие команд']
 };
 
-/* ---------- Парсинг PDF ---------- */
+/* ---------- Парсинг PDF (данные отчёта читаются здесь и только здесь) ---------- */
 function rowsFromItems(items){
   const sorted = items.slice().sort((a,b)=> b.y - a.y || a.x - b.x);
   const rows = [];
@@ -336,6 +502,8 @@ const PHASES = [
   {t:'Стратегические инициативы', w:'3–6 месяцев'}
 ];
 
+/* Балл подбора сценария: важность метрики + отставание от порога + слабые субметрики
+   + влияние на MPS/eNPS + применимость к группам + скорость − сложность. */
 function scoreScenario(scn, R, thr, shares){
   const pr = R.priorities && R.priorities[scn.metric];
   const imp = pr ? pr.importance : 0;
@@ -356,9 +524,16 @@ function catalogFor(metric){
   return CATALOG.filter(t=> mods.includes(t.module));
 }
 function metricHasScenarios(metric){ return SCENARIOS.some(s=> s.metric===metric); }
+/* Ответственный за пункт плана: зависит от сложности сценария */
+function ownerFor(s){ return s.complexity>=3 ? 'Руководитель подразделения + HR (инструменты компании)' : 'Руководитель подразделения'; }
+
+/* Бенчмарки компании — итоги исследования Happy Job 2024 (гайд «Happy Job для руководителей»).
+   Показываются в сводке для сравнения подразделения с компанией в целом. */
+const COMPANY_BENCH = { engagement:91.6, loyalty:88.5, eNPS:54.0, mNPS:69.9, satisfaction:93.5, participation:82.0 };
+const ru1 = v => v.toFixed(1).replace('.', ',');
 
 /* ---------- Отрисовка ---------- */
-let REPORT=null, THRESHOLD=8.0, SELECTED=new Set();
+let REPORT=null, THRESHOLD=8.0, SELECTED=new Set(), PLAN_MANUAL=false, METRIC_SORT='critical';
 
 function esc(s){ const d=document.createElement('div'); d.textContent=s==null?'':String(s); return d.innerHTML; }
 function scoreColor(v){
@@ -380,7 +555,14 @@ function stackHtml(groups, colors){
 }
 const GC = ['#d64550','#e0a11a','#2fae6e'];
 
-function renderSummary(R){
+/* Индикатор прогресса в шапке: 1 — загружено, 2 — разобрано, 3 — план собран */
+function setStep(n){
+  for(let i=1;i<=3;i++) document.getElementById('st'+i).classList.toggle('done', i<=n);
+}
+
+/* ДАННЫЕ ИЗ PDF: сводка собирается из R.metrics (карта метрик), R.priorities,
+   R.engGroups/npsGroups (группы), R.eNPS, R.participation. */
+function renderSummary(R, thr){
   const eng = R.engGroups, loy = R.loyGroups, sat = R.satGroups, npg = R.npsGroups;
   const engIdx = eng ? Math.round((eng[1].pct+eng[2].pct)*10)/10 : null;
   const loyIdx = loy ? Math.round((loy[1].pct+loy[2].pct)*10)/10 : null;
@@ -388,63 +570,110 @@ function renderSummary(R){
   document.getElementById('unitLine').textContent =
     (R.unit? 'Подразделение: '+R.unit+'. ' : '') + (R.cycle? 'Период: '+R.cycle.replace(/\.$/,'')+'. ' : '') +
     (R.participation? `Участие: ${R.participation.voted} из ${R.participation.total} (${R.participation.pct}%).` : '');
+
+  // средний балл по метрикам и число метрик ниже порога — из карты метрик отчёта
+  const scored = METRICS.map(m=> R.metrics && R.metrics[m.name]).filter(m=> m && m.score!=null);
+  const avg = scored.length ? Math.round(100*scored.reduce((a,m)=>a+m.score,0)/scored.length)/100 : null;
+  const belowCnt = scored.filter(m=> m.score < thr).length;
+
   const cells = [];
   const cell = (lbl,val,sub)=>`<div class="idx"><div class="lbl">${lbl}</div><div class="val">${val}</div><div class="grp">${sub||''}</div></div>`;
-  cells.push(cell('Индекс вовлечённости', engIdx!=null? engIdx+'%':'—', eng? `${eng[2].pct}% вовлечённых · ${eng[1].pct}% слабо · ${eng[0].pct}% невовлечённых`:''));
-  cells.push(cell('Индекс лояльности', loyIdx!=null? loyIdx+'%':'—', loy? `${loy[2].pct}% лояльных · ${loy[1].pct}% слабо · ${loy[0].pct}% нелояльных`:''));
-  cells.push(cell('eNPS', R.eNPS!=null? (R.eNPS>0?'+':'')+R.eNPS+'%':'—', npg? `${npg[2].pct}% промоутеров · ${npg[1].pct}% скептиков · ${npg[0].pct}% критиков`:''));
-  cells.push(cell('Удовлетворённость', satIdx!=null? satIdx+'%':'—', sat? `${sat[2].pct}% высокая · ${sat[1].pct}% средняя · ${sat[0].pct}% низкая`:''));
+  cells.push(cell('Средний балл метрик', avg!=null? avg.toFixed(1):'—', 'шкала 1–10, по 10 метрикам'));
+  cells.push(cell('Метрик ниже порога', belowCnt, `порог ${thr.toFixed(1)} — зоны внимания`));
+  cells.push(cell('eNPS', R.eNPS!=null? (R.eNPS>0?'+':'')+R.eNPS+'%':'—', (npg? `${npg[2].pct}% рекомендуют · ${npg[0].pct}% критикуют · `:'') + `компания ${ru1(COMPANY_BENCH.eNPS)}%`));
+  cells.push(cell('Индекс вовлечённости', engIdx!=null? engIdx+'%':'—', (eng? `${eng[2].pct}% вовлечённых · ${eng[0].pct}% невовлечённых · `:'') + `компания ${ru1(COMPANY_BENCH.engagement)}%`));
+  cells.push(cell('Индекс лояльности', loyIdx!=null? loyIdx+'%':'—', (loy? `${loy[2].pct}% лояльных · ${loy[0].pct}% нелояльных · `:'') + `компания ${ru1(COMPANY_BENCH.loyalty)}%`));
+  cells.push(cell('Удовлетворённость', satIdx!=null? satIdx+'%':'—', (sat? `${sat[2].pct}% высокая · ${sat[0].pct}% низкая · `:'') + `компания ${ru1(COMPANY_BENCH.satisfaction)}%`));
   document.getElementById('idxGrid').innerHTML = cells.join('');
+
+  // текстовый вывод «что это значит для вас» — генерируется по данным отчёта
+  const V = [];
+  if(avg!=null){
+    const lvl = avg>=8.5? 'отличный уровень' : avg>=8? 'хороший уровень' : avg>=7? 'уровень ниже желаемого — есть зоны внимания' : 'критический уровень — нужна системная работа';
+    V.push(`Средний балл по метрикам — <b>${avg.toFixed(1)} из 10</b>: ${lvl}.`);
+  }
+  if(scored.length){
+    const best = scored.slice().sort((a,b)=>b.score-a.score)[0];
+    const worst = scored.slice().sort((a,b)=>a.score-b.score)[0];
+    const bestName = METRICS.find(m=> R.metrics[m.name]===best)?.name || '';
+    const worstName = METRICS.find(m=> R.metrics[m.name]===worst)?.name || '';
+    V.push(`Сильная сторона — «${esc(dname(bestName))}» (${best.score.toFixed(1)}); больше всего внимания требует «${esc(dname(worstName))}» (${worst.score.toFixed(1)})${belowCnt? `, ниже порога ${thr.toFixed(1)} — <b>${belowCnt} ${belowCnt===1?'метрика':'метрики'}</b>`:''}.`);
+  }
+  const prs = R.priorities||{};
+  const topPr = Object.entries(prs).sort((a,b)=>b[1].importance-a[1].importance)[0];
+  if(topPr && topPr[1].importance>=20) V.push(`Сотрудники чаще всего просят улучшить «${esc(dname(topPr[0]))}» (${topPr[1].importance}% отметили приоритетом) — имеет смысл начать с неё.`);
+  if(R.eNPS!=null){
+    V.push(R.eNPS>=50? `eNPS <b>+${R.eNPS}%</b> — большинство сотрудников готовы рекомендовать компанию.`
+       : R.eNPS>=0? `eNPS <b>${R.eNPS>0?'+':''}${R.eNPS}%</b> — в целом нейтрально-позитивный фон; есть над чем работать с критиками.`
+       : `eNPS <b>${R.eNPS}%</b> — критикующих больше, чем рекомендующих: стоит разобраться в причинах.`);
+  }
+  document.getElementById('verdict').innerHTML = V.length
+    ? '<b>Что это значит для вас.</b> ' + V.join(' ')
+    : 'Загрузите отчёт с картой метрик — здесь появится краткий вывод по подразделению.';
+
   const det = [];
-  if(npg) det.push(`<div style="margin-bottom:8px;"><b>Группы eNPS:</b> ${stackHtml(npg,GC)}<div class="legend">${npg.map((g,i)=>`<span><i style="background:${GC[i]}"></i>${g.name} — ${g.pct}%</span>`).join('')}</div></div>`);
-  if(eng) det.push(`<div style="margin-bottom:8px;"><b>Группы вовлечённости:</b> ${stackHtml(eng,GC)}<div class="legend">${eng.map((g,i)=>`<span><i style="background:${GC[i]}"></i>${g.name} — ${g.pct}%</span>`).join('')}</div></div>`);
+  if(npg) det.push(`<div style="margin-bottom:8px;"><b>Группы eNPS</b> (кто рекомендует, кто критикует): ${stackHtml(npg,GC)}<div class="legend">${npg.map((g,i)=>`<span><i style="background:${GC[i]}"></i>${g.name} — ${g.pct}%</span>`).join('')}</div></div>`);
+  if(eng) det.push(`<div style="margin-bottom:8px;"><b>Группы вовлечённости</b> (насколько сотрудники «горят» работой): ${stackHtml(eng,GC)}<div class="legend">${eng.map((g,i)=>`<span><i style="background:${GC[i]}"></i>${g.name} — ${g.pct}%</span>`).join('')}</div></div>`);
   document.getElementById('groupDetails').innerHTML = det.join('');
 }
 
+/* ДАННЫЕ ИЗ PDF: таблица метрик строится по R.metrics (баллы метрик и субметрик)
+   и R.priorities (важность в %). Порог и порядок — настройки пользователя. */
 function renderMetrics(R, thr){
   const prs = R.priorities||{};
   const maxImp = Math.max(10, ...METRICS.map(m=> (prs[m.name]||{}).importance||0));
-  const rows = METRICS.map(m=>{
+  let order = METRICS.slice();
+  const mscore = m=>{ const mm=R.metrics&&R.metrics[m.name], pr=prs[m.name]; return mm? mm.score : (pr? pr.score : null); };
+  const mimp = m=> (prs[m.name]? prs[m.name].importance : 0);
+  if(METRIC_SORT==='critical') order.sort((a,b)=> (mscore(a)??11)-(mscore(b)??11));
+  else if(METRIC_SORT==='importance') order.sort((a,b)=> mimp(b)-mimp(a));
+  const rows = order.map(m=>{
     const mm = R.metrics && R.metrics[m.name];
     const pr = prs[m.name];
-    const score = mm? mm.score : (pr? pr.score : null);
+    const score = mscore(m);
     const imp = pr? pr.importance : null;
     const weak = mm ? mm.subs.filter(s=> s.score!=null && s.score<thr) : [];
+    const below = score!=null && score<thr;
+    const pillColor = below ? (score<7? 'var(--bad)':'var(--warn)') : scoreColor(score);
     const scoreCell = score!=null
-      ? `<span class="score-pill" style="background:${scoreColor(score)};">${score.toFixed(1)}</span>`
+      ? `<span class="score-pill" style="background:${pillColor};">${score.toFixed(1)}</span>`
       : '<span class="tag gray">нет данных</span>';
+    const devCell = score==null? '<span class="tag gray">—</span>'
+      : below? `<span class="deviation" style="color:${score<7?'var(--bad)':'var(--warn)'};">−${(thr-score).toFixed(1)}</span>`
+      : `<span class="deviation" style="color:var(--ok);">+${(score-thr).toFixed(1)}</span>`;
     const impCell = imp!=null
-      ? `<div style="display:flex;align-items:center;gap:8px;"><div class="imp-bar"><span style="width:${100*imp/maxImp}%"></span></div><b>${imp}%</b></div>`
+      ? `<div style="display:flex; align-items:center; gap:8px;"><div class="imp-bar"><span style="width:${100*imp/maxImp}%"></span></div><b>${imp}%</b></div>`
       : '<span class="tag gray">—</span>';
     const flags = [];
     if(imp!=null && imp>=30) flags.push('<span class="tag red">приоритет сотрудников</span>');
-    if(score!=null && score<thr) flags.push(`<span class="tag orange">ниже порога (${thr})</span>`);
+    if(below) flags.push(`<span class="tag orange">ниже порога (${thr.toFixed(1)})</span>`);
     if(!metricHasScenarios(m.name)) flags.push('<span class="tag gray">нет сценариев в матрице</span>');
-    const subsHtml = mm ? `<details class="subs"><summary>Субметрики (${mm.subs.filter(s=>s.score!=null).length})</summary>
+    const subsHtml = mm ? `<details class="subs"><summary>Субметрики (${mm.subs.filter(s=>s.score!=null).length}) — составляющие метрики</summary>
       <div class="subs-grid">${mm.subs.map(s=> s.score==null? '' :
-        `<div class="sub-chip" style="background:${scoreBg(s.score)};">${esc(s.name)} — <b style="color:${scoreColor(s.score)};">${s.score.toFixed(1)}</b></div>`).join('')}</div>
-      ${weak.length? `<div style="font-size:12.5px;color:var(--warn);margin-top:6px;">Ниже порога: ${weak.map(s=>esc(s.name)+' ('+s.score.toFixed(1)+')').join(', ')}</div>`:''}
+        `<div class="sub-chip" style="background:${s.score<thr? 'var(--warn-bg)' : scoreBg(s.score)};${s.score<thr? 'border-color:var(--warn);':''}">${esc(s.name)} — <b style="color:${s.score<thr? (s.score<7?'var(--bad)':'var(--warn)') : scoreColor(s.score)};">${s.score.toFixed(1)}</b></div>`).join('')}</div>
+      ${weak.length? `<div style="font-size:12.5px;color:var(--warn);margin-top:6px;">Ниже порога ${thr.toFixed(1)}: ${weak.map(s=>esc(s.name)+' ('+s.score.toFixed(1)+')').join(', ')} — эти субметрики попадают в подборку инструментов и контроль плана.</div>`:''}
     </details>` : '';
-    return `<tr><td><b>${m.name}</b><div style="margin-top:3px;">${flags.join(' ')}</div>${subsHtml}</td><td>${scoreCell}</td><td>${impCell}</td></tr>`;
+    return `<tr><td><b>${esc(dname(m.name))}</b><div class="mdesc">${esc(m.desc)}</div><div style="margin-top:3px;">${flags.join(' ')}</div>${subsHtml}</td><td>${scoreCell}</td><td>${devCell}</td><td>${impCell}</td></tr>`;
   }).join('');
   document.getElementById('metricsTable').innerHTML =
-    `<table><thead><tr><th>Метрика</th><th style="width:90px;">Ср. балл</th><th style="width:220px;">Важность для сотрудников</th></tr></thead><tbody>${rows}</tbody></table>`;
+    `<table><thead><tr><th>Метрика</th><th style="width:78px;">Балл</th><th style="width:86px;">До порога</th><th style="width:190px;">Важность для сотрудников</th></tr></thead><tbody>${rows}</tbody></table>`;
 
   // «на что можем повлиять»
   const influenceable = METRICS.filter(m=>{
-    const pr = prs[m.name], mm = R.metrics && R.metrics[m.name];
-    const score = mm? mm.score : (pr?pr.score:null);
-    const imp = pr? pr.importance:0;
+    const score = mscore(m);
+    const imp = mimp(m);
     return metricHasScenarios(m.name) && (imp>=15 || (score!=null && score<thr));
   });
-  const noTools = METRICS.filter(m=> !metricHasScenarios(m.name) && ((prs[m.name]||{}).importance||0)>=15);
+  const noTools = METRICS.filter(m=> !metricHasScenarios(m.name) && mimp(m)>=15);
   let note = '<b>Метрики, на которые можно повлиять инструментами компании:</b><div style="margin-top:6px;">'
-    + (influenceable.length? influenceable.map(m=>`<span class="tag">${m.name}${(prs[m.name]||{}).importance? ' · важно '+prs[m.name].importance+'%':''}</span>`).join('') : '<span class="tag gray">по заданному порогу явных кандидатов нет — снизьте порог или ориентируйтесь на план</span>')
+    + (influenceable.length? influenceable.map(m=>`<span class="tag">${esc(dname(m.name))}${mimp(m)? ' · важно '+mimp(m)+'%':''}</span>`).join('') : '<span class="tag gray">по заданному порогу явных кандидатов нет — снизьте порог или ориентируйтесь на план</span>')
     + '</div>';
-  if(noTools.length) note += `<div class="noTools">Для метрик ${noTools.map(m=>'«'+m.name+'»').join(', ')} в матрице нет готовых сценариев. Ориентир: работа с целями и видением команды (командный коучинг / фасилитация из каталога «Развитие команд»).</div>`;
+  if(noTools.length) note += `<div class="noTools">Для метрик ${noTools.map(m=>'«'+esc(dname(m.name))+'»').join(', ')} в матрице нет готовых сценариев. Ориентир: работа с целями и видением команды (командный коучинг / фасилитация из каталога «Развитие команд»).</div>`;
   document.getElementById('influenceNote').innerHTML = note;
 }
 
+/* Карточки инструментов: сценарии из матрицы компании, отсортированные по баллу подбора.
+   «Почему этот инструмент?» — расшифровка балла подбора по данным вашего отчёта. */
 function renderTools(R, thr){
   const shares = groupShares(R);
   const scored = SCENARIOS.map(s=>({s, score:scoreScenario(s,R,thr,shares)}))
@@ -457,22 +686,39 @@ function renderTools(R, thr){
         + `<div class="mod">${[...new Set(tools.map(t=>t.module))].join(' · ')}</div>`
       : '<div class="mod" style="color:var(--warn)">инструменты в каталоге не привязаны — уточните у HR</div>';
     const on = SELECTED.has(s.when);
-    const infl = [`MPS ${s.infl.MPS}/3`, `eNPS ${s.infl.eNPS}/3`, `tNPS ${s.infl.tNPS}/3`].map(x=>`<span class="tag gray">${x}</span>`).join('');
+    const infl = [`<span class="tag gray" title="Влияние на средний балл метрик вовлечённости">MPS ${s.infl.MPS}/3</span>`, `<span class="tag gray" title="Влияние на готовность рекомендовать компанию (eNPS)">eNPS ${s.infl.eNPS}/3</span>`, `<span class="tag gray" title="Влияние на готовность рекомендовать руководителя (tNPS / mNPS)">tNPS ${s.infl.tNPS}/3</span>`].join('');
+    const m = R.metrics && R.metrics[s.metric];
+    const pr = (R.priorities&&R.priorities[s.metric])||{};
+    const deficit = (m && m.score!=null)? Math.max(0, thr-m.score) : null;
+    const weakSubs = m? m.subs.filter(x=>x.score!=null && x.score<thr) : [];
+    const app = applicShare(s, shares);
+    const spd = speedMonths(s.speed);
+    const whyList = [
+      `Важность метрики «${esc(dname(s.metric))}» для сотрудников: <b>${pr.importance||0}%</b> отметили её приоритетом.`,
+      m && m.score!=null? `Текущий балл метрики: <b>${m.score.toFixed(1)}</b>${deficit>0? ` — отстаёт от порога ${thr.toFixed(1)} на <b>${deficit.toFixed(1)}</b>`:''}.` : 'Балл метрики в отчёте не найден.',
+      weakSubs.length? `Субметрики ниже порога: <b>${weakSubs.map(x=>esc(x.name)+' ('+x.score.toFixed(1)+')').join(', ')}</b>.` : 'Субметрик ниже порога нет — сценарий рекомендован скорее по важности и влиянию.',
+      `Влияние по матрице: на баллы метрик (MPS) ${s.infl.MPS}/3, на лояльность (eNPS) ${s.infl.eNPS}/3, на отношение к руководителю (tNPS) ${s.infl.tNPS}/3.`,
+      `Применимость к группам вашего подразделения: ~<b>${app}%</b> (сценарий для групп: ${esc(s.groups.join(', '))}).`,
+      `Скорость внедрения: ~${esc(s.speed)} мес, сложность ${s.complexity}/3${s.quick? ', быстрая победа':''}.`
+    ];
     return `<div class="tool ${on?'on':''}" data-when="${esc(s.when)}">
       <button class="pick" data-when="${esc(s.when)}">${on?'✓ В плане':'+ В план'}</button>
       <h4>${esc(s.when)}</h4>
-      <div><span class="tag">${esc(s.metric)}</span>${s.quick?'<span class="tag green">быстрая победа</span>':''}
+      <div><span class="tag">${esc(dname(s.metric))}</span>${s.quick?'<span class="tag green">быстрая победа</span>':''}
         <span class="tag orange">скорость: ${esc(s.speed)} мес</span><span class="tag gray">сложность ${s.complexity}/3</span></div>
       <div style="margin-top:6px;">${infl}</div>
-      <div class="meta">Эффект: ${esc(s.effect)}. Группы: ${esc(s.groups.join(', '))}.</div>
+      <div class="meta">Ожидаемый эффект: ${esc(s.effect)}.</div>
+      <details class="whyd"><summary>Почему этот инструмент? · балл подбора ${score.toFixed(1)}</summary>
+        <ul>${whyList.map(x=>`<li>${x}</li>`).join('')}</ul>
+      </details>
       <div class="links">${links}</div>
-      <div class="why">Почему: приоритет метрики ${(R.priorities&&R.priorities[s.metric]||{}).importance||0}% · итоговый балл подбора ${score.toFixed(1)}</div>
     </div>`;
   }).join('');
   wrap.querySelectorAll('.pick').forEach(b=>{
     b.onclick = ()=>{
       const w = b.dataset.when;
       if(SELECTED.has(w)) SELECTED.delete(w); else SELECTED.add(w);
+      PLAN_MANUAL = true;
       renderTools(REPORT, THRESHOLD); renderPlan(REPORT, THRESHOLD);
     };
   });
@@ -489,20 +735,31 @@ function planText(R){
     if(!items.length) return;
     L.push('=== '+ph.t.toUpperCase()+' ('+ph.w+') ===');
     items.forEach((s,i)=>{
-      L.push(`${i+1}. ${s.when.charAt(0).toUpperCase()+s.when.slice(1)}`);
-      L.push(`   Метрика-цель: ${s.metric}. Влияние: MPS ${s.infl.MPS}/3, eNPS ${s.infl.eNPS}/3, tNPS ${s.infl.tNPS}/3.`);
-      L.push(`   Срок: ~${s.speed} мес. Сложность: ${s.complexity}/3.${s.quick? ' Быстрая победа.':''}`);
-      const tools = catalogFor(s.metric);
-      if(tools.length) L.push('   Инструменты: ' + tools.map(t=>t.name+(t.link?' ('+t.link+')':'')).join('; '));
       const m = R.metrics && R.metrics[s.metric];
       const weak = m? m.subs.filter(x=>x.score!=null && x.score<THRESHOLD).map(x=>x.name+' ('+x.score.toFixed(1)+')') : [];
-      L.push(`   Контроль: рост метрики «${s.metric}»` + (m&&m.score!=null? ` (текущий балл ${m.score.toFixed(1)})`:'') + (weak.length? `; субметрики: ${weak.join(', ')}`:'') + ' — по следующему циклу HJ.');
+      L.push(`${i+1}. ${s.when.charAt(0).toUpperCase()+s.when.slice(1)}`);
+      L.push(`   Метрика-цель: ${dname(s.metric)}. Влияние: MPS ${s.infl.MPS}/3, eNPS ${s.infl.eNPS}/3, tNPS ${s.infl.tNPS}/3.`);
+      L.push(`   Срок: ~${s.speed} мес. Сложность: ${s.complexity}/3.${s.quick? ' Быстрая победа.':''}`);
+      L.push(`   Ответственный: ${ownerFor(s)}.`);
+      const tools = catalogFor(s.metric);
+      if(tools.length) L.push('   Инструменты: ' + tools.map(t=>t.name+(t.link?' ('+t.link+')':'')).join('; '));
+      L.push(`   Как измеряем: рост метрики «${dname(s.metric)}»` + (m&&m.score!=null? ` с текущего балла ${m.score.toFixed(1)} до ≥${THRESHOLD.toFixed(1)}`:'') + (weak.length? `; субметрики: ${weak.join(', ')}`:'') + '.');
+      L.push(`   Повторный замер: следующий цикл Happy Job.`);
       L.push('');
     });
   });
+  L.push('ЧТО ДАЛЬШЕ (план действий по гайду компании):');
+  L.push('   1. Покажите результаты команде.');
+  L.push('   2. Совместно выберите 3-6 субметрик, на которые можно повлиять на уровне подразделения.');
+  L.push('   3. Составьте план работ в подразделении (этот план).');
+  L.push('   4. Закрепите ответственных и сроки в системе Happy Job.');
+  L.push('   5. Выберите 3 субметрики уровня компании и зафиксируйте их с вашим HR BP.');
+  L.push('   6. Поставьте встречи раз в квартал с HR BP для оценки следования плану.');
   return L.join('\n');
 }
 
+/* ДАННЫЕ ИЗ PDF: в пунктах плана используются баллы метрик (R.metrics) как база,
+   от которой измеряем рост до порога. */
 function renderPlan(R, thr){
   const body = [];
   let any = false;
@@ -517,19 +774,21 @@ function renderPlan(R, thr){
         const tools = catalogFor(s.metric);
         return `<div class="plan-item">
           <div class="act">${esc(s.when.charAt(0).toUpperCase()+s.when.slice(1))}</div>
-          <div class="row"><b>Метрика-цель:</b> ${esc(s.metric)}${m&&m.score!=null? ` (текущий балл <b style="color:${scoreColor(m.score)};">${m.score.toFixed(1)}</b>)`:''} · <b>срок:</b> ~${esc(s.speed)} мес · <b>сложность:</b> ${s.complexity}/3${s.quick?' · <span class="tag green">быстрая победа</span>':''}</div>
+          <div class="row"><b>Метрика-цель:</b> ${esc(dname(s.metric))}${m&&m.score!=null? ` (текущий балл <b style="color:${scoreColor(m.score)};">${m.score.toFixed(1)}</b>)`:''} · <b>срок:</b> ~${esc(s.speed)} мес · <b>сложность:</b> ${s.complexity}/3${s.quick?' · <span class="tag green">быстрая победа</span>':''}</div>
+          <div class="row"><b>Ответственный:</b> ${esc(ownerFor(s))}</div>
           ${tools.length? `<div class="row"><b>Инструменты:</b> ${tools.map(t=> t.link? `<a href="${esc(t.link)}" target="_blank">${esc(t.name)}</a>` : esc(t.name)).join(' · ')}</div>`:''}
-          ${weak.length? `<div class="row"><b>Контроль:</b> рост субметрик ${weak.join(', ')} — по следующему циклу HJ.</div>` : `<div class="row"><b>Контроль:</b> рост метрики «${esc(s.metric)}» — по следующему циклу HJ.</div>`}
+          <div class="row"><b>Как измеряем:</b> рост метрики «${esc(dname(s.metric))}»${m&&m.score!=null? ` с ${m.score.toFixed(1)} до ≥ ${thr.toFixed(1)}`:''}${weak.length? `; субметрики: ${weak.join(', ')}`:''}.</div>
+          <div class="row"><b>Повторный замер:</b> следующий цикл Happy Job.</div>
         </div>`;
       }).join('') + '</div>');
   });
-  if(!any) body.push('<p class="sub">Не выбрано ни одного действия. Отметьте карточки «В план» в разделе 2 или нажмите «Автоотбор».</p>');
+  if(!any) body.push('<p class="sub">Не выбрано ни одного действия. Отметьте карточки «В плане» в разделе инструментов или нажмите «Автоотбор».</p>');
   document.getElementById('planBody').innerHTML = body.join('');
 }
 
 function renderAll(){
   if(!REPORT) return;
-  renderSummary(REPORT);
+  renderSummary(REPORT, THRESHOLD);
   renderMetrics(REPORT, THRESHOLD);
   renderTools(REPORT, THRESHOLD);
   renderPlan(REPORT, THRESHOLD);
@@ -542,15 +801,18 @@ function renderAll(){
 function autoPick(){
   const shares = groupShares(REPORT);
   const scored = SCENARIOS.map(s=>({s, score:scoreScenario(s,REPORT,THRESHOLD,shares)})).sort((a,b)=>b.score-a.score);
-  const picked = new Set(scored.slice(0,6).map(x=>x.s.when));
-  // гарантируем лучший сценарий для каждой метрики, важной для сотрудников (>=30%)
+  // по гайду компании: 3–6 направлений в работу — поэтому база топ-4 и максимум 6
+  const picked = new Set(scored.slice(0,4).map(x=>x.s.when));
+  // гарантируем лучший сценарий для каждой метрики, важной для сотрудников (>=30%), в пределах 6
   const prs = REPORT.priorities||{};
   Object.entries(prs).sort((a,b)=>b[1].importance-a[1].importance).forEach(([met,pr])=>{
-    if(pr.importance < 30) return;
+    if(pr.importance < 30 || picked.size >= 6) return;
     const best = scored.find(x=> x.s.metric===met && !picked.has(x.s.when));
     if(best) picked.add(best.s.when);
   });
   SELECTED = picked;
+  PLAN_MANUAL = false;
+  document.getElementById('autoPick').textContent = `Автоотбор в план (${picked.size})`;
   renderTools(REPORT, THRESHOLD); renderPlan(REPORT, THRESHOLD);
 }
 
@@ -574,8 +836,9 @@ function buildPdf(R){
       const m = R.metrics && R.metrics[s.metric];
       const weak = m? m.subs.filter(x=>x.score!=null && x.score<THRESHOLD).map(x=>x.name+' ('+x.score.toFixed(1)+')') : [];
       content.push({text:(n+1)+'. '+s.when.charAt(0).toUpperCase()+s.when.slice(1), style:'action', margin:[0,5,0,1]});
-      content.push({text:'Метрика-цель: '+s.metric+(m&&m.score!=null? ' (текущий балл '+m.score.toFixed(1)+')':'')
+      content.push({text:'Метрика-цель: '+dname(s.metric)+(m&&m.score!=null? ' (текущий балл '+m.score.toFixed(1)+')':'')
         +'  ·  срок: ~'+s.speed+' мес  ·  сложность: '+s.complexity+'/3'+(s.quick?'  ·  быстрая победа':''), margin:[0,0,0,2]});
+      content.push({text:'Ответственный: '+ownerFor(s)+'.', margin:[0,0,0,2]});
       const tools = catalogFor(s.metric);
       if(tools.length){
         const tArr = [{text:'Инструменты: '}];
@@ -585,11 +848,14 @@ function buildPdf(R){
         });
         content.push({text:tArr, margin:[0,0,0,2]});
       }
-      content.push({text:'Контроль: рост '+(weak.length? 'субметрик '+weak.join(', ') : 'метрики «'+s.metric+'»')+' — по следующему циклу HJ.', margin:[0,0,0,2]});
+      content.push({text:'Как измеряем: рост метрики «'+dname(s.metric)+'»'+(m&&m.score!=null? ' с '+m.score.toFixed(1)+' до ≥ '+THRESHOLD.toFixed(1):'')+(weak.length? '; субметрики: '+weak.join(', '):'')+'. Повторный замер — по следующему циклу HJ.', margin:[0,0,0,2]});
     });
   });
-  if(!any) content.push({text:'Не выбрано ни одного действия для плана. Отметьте карточки «В план» в разделе 2.', style:'meta', margin:[0,8,0,0]});
-  content.push({text:'Сформировано помощником по результатам Happy Job. Источник: матрица «Инструменты развития (V1)» и каталог инструментов компании.', style:'foot', margin:[0,14,0,0]});
+  if(!any) content.push({text:'Не выбрано ни одного действия для плана. Отметьте карточки «В плане» в разделе инструментов.', style:'meta', margin:[0,8,0,0]});
+  content.push({text:'Что дальше — план действий по гайду компании', style:'phase', margin:[0,12,0,4]});
+  content.push({text:'1. Покажите результаты команде.\n2. Совместно выберите 3-6 субметрик, на которые можно повлиять на уровне подразделения.\n3. Составьте план работ (этот план) и отредактируйте под команду.\n4. Закрепите ответственных и сроки в системе Happy Job.\n5. Выберите 3 субметрики уровня компании и зафиксируйте их с вашим HR BP.\n6. Поставьте встречи раз в квартал с HR BP для оценки следования плану.', margin:[0,0,0,2]});
+  content.push({text:'Повторный замер метрик — в следующем цикле Happy Job.', style:'meta', margin:[0,6,0,0]});
+  content.push({text:'Сформировано помощником по результатам Happy Job. Источник: матрица «Инструменты развития (V1)», каталог инструментов компании и гайд «Happy Job для руководителей».', style:'foot', margin:[0,14,0,0]});
   pdfMake.createPdf({
     pageSize:'A4', pageMargins:[40,42,40,48],
     defaultStyle:{font:'Roboto', fontSize:10.5, lineHeight:1.25, color:'#241c3f'},
@@ -613,30 +879,48 @@ drop.ondrop = e=>{ e.preventDefault(); drop.classList.remove('hover'); if(e.data
 fileInput.onchange = ()=>{ if(fileInput.files[0]) handleFile(fileInput.files[0]); };
 
 async function handleFile(f){
-  if(!/\.pdf$/i.test(f.name)){ status.innerHTML = '<span class="err">Нужен PDF-файл отчёта Happy Job.</span>'; return; }
+  if(!/\.pdf$/i.test(f.name)){
+    status.innerHTML = '<span class="err">Это не PDF. Нужен PDF-отчёт Happy Job — тот файл, что выгружается из личного кабинета платформы.</span>';
+    return;
+  }
   status.textContent = 'Читаю и разбираю отчёт…';
+  setStep(1);
   try{
     const buf = await f.arrayBuffer();
     const R = await parsePdf(buf);
     if(!R.metrics && !R.engGroups && !R.npsGroups){
-      status.innerHTML = '<span class="err">Не удалось распознать отчёт. Проверьте, что это PDF-выгрузка результатов Happy Job по подразделению.</span>';
+      status.innerHTML = '<span class="err">Не удалось распознать отчёт: внутри нет разделов Happy Job (карта метрик, группы). Проверьте, что выбрана PDF-выгрузка результатов опроса по подразделению.</span>';
       return;
     }
     REPORT = R; SELECTED = new Set();
     document.getElementById('report').hidden = false;
+    document.getElementById('emptyState').hidden = true;
+    document.querySelectorAll('.toc a.off').forEach(a=>a.classList.remove('off'));
     autoPick();
     renderAll();
+    setStep(3);
     status.innerHTML = 'Отчёт обработан: <b>'+esc(f.name)+'</b>. Можно загрузить другой файл — данные обновятся.';
-    document.getElementById('report').scrollIntoView({behavior:'smooth'});
+    document.getElementById('summary').scrollIntoView({behavior:'smooth'});
   }catch(e){
     status.innerHTML = '<span class="err">Ошибка при обработке PDF: '+esc(e.message)+'</span>';
   }
 }
 
+/* Порог внимания: пересобирает метрики, а план — автоматически (если не меняли вручную) */
 document.getElementById('thr').oninput = e=>{
   THRESHOLD = parseFloat(e.target.value);
   document.getElementById('thrVal').textContent = THRESHOLD.toFixed(1);
-  if(REPORT){ renderMetrics(REPORT, THRESHOLD); renderTools(REPORT, THRESHOLD); renderPlan(REPORT, THRESHOLD); }
+  if(REPORT){
+    renderSummary(REPORT, THRESHOLD);
+    renderMetrics(REPORT, THRESHOLD);
+    if(!PLAN_MANUAL){ autoPick(); }
+    else { renderTools(REPORT, THRESHOLD); renderPlan(REPORT, THRESHOLD); }
+  }
+};
+/* Порядок метрик в таблице */
+document.getElementById('metricSort').onchange = e=>{
+  METRIC_SORT = e.target.value;
+  if(REPORT) renderMetrics(REPORT, THRESHOLD);
 };
 document.getElementById('autoPick').onclick = autoPick;
 document.getElementById('pdfBtn').onclick = ()=> buildPdf(REPORT);
