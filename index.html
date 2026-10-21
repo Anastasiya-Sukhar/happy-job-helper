@@ -1,0 +1,603 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Помощник по результатам Happy Job</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<style>
+  :root{
+    --bg:#f4f2fa; --card:#ffffff; --ink:#241c3f; --muted:#6b6390;
+    --accent:#6e3ae7; --accent2:#a259ff; --ok:#1e9e5a; --warn:#e08a00; --bad:#d64550;
+    --ok-bg:#e3f6ec; --warn-bg:#fdf1dd; --bad-bg:#fbe4e6; --chip:#efeafd; --line:#e4e0f2;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{font-family:'Segoe UI', system-ui, -apple-system, Arial, sans-serif; background:var(--bg); color:var(--ink); line-height:1.45;}
+  header{background:linear-gradient(120deg,#4b1fb8, #7b2fd4 55%, #b44df0); color:#fff; padding:26px 32px;}
+  header h1{font-size:24px; font-weight:700;}
+  header p{opacity:.9; font-size:14px; margin-top:4px; max-width:900px;}
+  main{max-width:1120px; margin:0 auto; padding:24px 20px 60px;}
+  .card{background:var(--card); border:1px solid var(--line); border-radius:14px; padding:20px 22px; margin-bottom:18px; box-shadow:0 1px 4px rgba(40,20,90,.05);}
+  h2{font-size:18px; margin-bottom:4px;}
+  h2 .num{display:inline-flex; align-items:center; justify-content:center; width:26px; height:26px; border-radius:50%; background:var(--accent); color:#fff; font-size:14px; margin-right:8px; vertical-align:2px;}
+  .sub{color:var(--muted); font-size:13px; margin-bottom:14px;}
+  /* upload */
+  #drop{border:2px dashed #b9a8ec; border-radius:16px; background:#faf8ff; padding:44px 20px; text-align:center; cursor:pointer; transition:.15s;}
+  #drop.hover{background:#f0eaff; border-color:var(--accent);}
+  #drop .big{font-size:17px; font-weight:600;}
+  #drop .hint{color:var(--muted); font-size:13px; margin-top:6px;}
+  #drop kbd{background:var(--chip); border-radius:6px; padding:2px 10px; color:var(--accent); font-weight:600;}
+  #status{margin-top:14px; font-size:14px; color:var(--muted);}
+  .err{color:var(--bad); font-weight:600;}
+  /* summary */
+  .idx-grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); gap:12px; margin-top:8px;}
+  .idx{border:1px solid var(--line); border-radius:12px; padding:14px 16px;}
+  .idx .lbl{font-size:12px; color:var(--muted); text-transform:uppercase; letter-spacing:.4px;}
+  .idx .val{font-size:30px; font-weight:700; margin:2px 0;}
+  .idx .grp{font-size:12px; color:var(--muted);}
+  .stack{display:flex; height:10px; border-radius:5px; overflow:hidden; margin-top:8px;}
+  .stack div{height:100%;}
+  .legend{display:flex; gap:14px; font-size:12px; color:var(--muted); margin-top:6px; flex-wrap:wrap;}
+  .legend i{display:inline-block; width:10px; height:10px; border-radius:3px; margin-right:4px; vertical-align:-1px;}
+  /* metrics table */
+  table{width:100%; border-collapse:collapse; font-size:14px;}
+  th{font-size:12px; text-transform:uppercase; letter-spacing:.4px; color:var(--muted); text-align:left; padding:8px 10px; border-bottom:2px solid var(--line);}
+  td{padding:9px 10px; border-bottom:1px solid var(--line); vertical-align:middle;}
+  tr:last-child td{border-bottom:none;}
+  .score-pill{display:inline-block; min-width:46px; text-align:center; font-weight:700; border-radius:8px; padding:4px 8px; color:#fff;}
+  .imp-bar{background:#eee9fa; border-radius:5px; height:9px; width:130px; position:relative; min-width:130px;}
+  .imp-bar span{position:absolute; left:0; top:0; bottom:0; border-radius:5px; background:linear-gradient(90deg,#8a4ff0,#b44df0);}
+  .tag{display:inline-block; background:var(--chip); color:var(--accent); border-radius:6px; padding:2px 8px; font-size:12px; font-weight:600; margin:1px 2px;}
+  .tag.green{background:var(--ok-bg); color:var(--ok);}
+  .tag.orange{background:var(--warn-bg); color:var(--warn);}
+  .tag.red{background:var(--bad-bg); color:var(--bad);}
+  .tag.gray{background:#efeff4; color:#666;}
+  details.subs summary{cursor:pointer; color:var(--accent); font-size:13px;}
+  .subs-grid{display:flex; flex-wrap:wrap; gap:6px; margin-top:8px;}
+  .sub-chip{border-radius:8px; padding:5px 10px; font-size:13px; border:1px solid var(--line);}
+  .sub-chip b{font-weight:700;}
+  .noTools{font-size:13px; color:var(--warn); background:var(--warn-bg); border-radius:8px; padding:8px 12px; display:inline-block; margin-top:6px;}
+  /* tool cards */
+  .tool-list{display:grid; grid-template-columns:repeat(auto-fill,minmax(330px,1fr)); gap:14px; margin-top:10px;}
+  .tool{border:1px solid var(--line); border-radius:12px; padding:14px 16px; position:relative;}
+  .tool.on{border-color:var(--accent); box-shadow:0 0 0 2px #e8ddff;}
+  .tool h4{font-size:15px; margin-bottom:6px; padding-right:64px;}
+  .tool .meta{font-size:12.5px; color:var(--muted); margin-top:8px;}
+  .tool .links{margin-top:10px; border-top:1px dashed var(--line); padding-top:8px;}
+  .tool .links a{display:block; font-size:13px; color:var(--accent); text-decoration:none; margin:3px 0;}
+  .tool .links a:hover{text-decoration:underline;}
+  .tool .links .mod{font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:.3px; margin-top:6px;}
+  .pick{position:absolute; top:12px; right:12px; font-size:12px; border:1.5px solid var(--accent); color:var(--accent); background:#fff; border-radius:8px; padding:3px 10px; cursor:pointer; font-weight:600;}
+  .tool.on .pick{background:var(--accent); color:#fff;}
+  .why{font-size:12px; color:var(--muted); margin-top:6px; font-style:italic;}
+  /* plan */
+  .phase{margin-top:18px;}
+  .phase h3{font-size:16px; margin-bottom:8px;}
+  .phase .when{color:var(--accent);}
+  .plan-item{border-left:4px solid var(--accent2); background:#faf9ff; border-radius:0 10px 10px 0; padding:12px 16px; margin-bottom:10px;}
+  .plan-item .act{font-weight:600; font-size:15px;}
+  .plan-item .row{font-size:13px; margin-top:5px;}
+  .plan-item a{color:var(--accent);}
+  .btnrow{display:flex; gap:10px; margin-top:16px; flex-wrap:wrap;}
+  button.act{background:var(--accent); border:none; color:#fff; border-radius:10px; padding:10px 18px; font-size:14px; font-weight:600; cursor:pointer;}
+  button.act.ghost{background:#fff; color:var(--accent); border:1.5px solid var(--accent);}
+  button.act:hover{filter:brightness(1.07);}
+  .ctrl{display:flex; align-items:center; gap:12px; margin:6px 0 16px; font-size:14px; flex-wrap:wrap;}
+  .ctrl input[type=range]{width:200px;}
+  .warnbox{background:var(--warn-bg); color:#7a4b00; border-radius:10px; padding:10px 14px; font-size:13px; margin-bottom:14px; display:none;}
+  footer{max-width:1120px; margin:0 auto; padding:0 20px 40px; color:var(--muted); font-size:12px;}
+  @media print{
+    header{padding:14px 20px;} main{padding:8px;}
+    #uploadCard, .btnrow, .pick, .ctrl, footer{display:none !important;}
+    .card{box-shadow:none; break-inside:avoid;}
+    body{background:#fff;}
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>Помощник по результатам Happy Job</h1>
+  <p>Загрузите PDF-отчёт Happy Job по подразделению — помощник разберёт метрики, определит приоритеты, подберёт инструменты развития из базы компании и соберёт план работы руководителя с подразделением.</p>
+</header>
+<main>
+
+  <section class="card" id="uploadCard">
+    <h2>1. Загрузите отчёт</h2>
+    <p class="sub">PDF-отчёт исследования Happy Job по подразделению (выгрузка с платформы).</p>
+    <div id="drop">
+      <div class="big">Перетащите PDF-файл сюда или <kbd>выберите файл</kbd></div>
+      <div class="hint">Обработка происходит локально в браузере — данные никуда не отправляются.<br>Требуется подключение к интернету только для библиотеки чтения PDF.</div>
+      <input type="file" id="file" accept="application/pdf" hidden>
+    </div>
+    <div id="status"></div>
+  </section>
+
+  <div id="report" hidden>
+    <section class="card">
+      <h2><span class="num">✓</span>Сводка по подразделению</h2>
+      <p class="sub" id="unitLine"></p>
+      <div class="idx-grid" id="idxGrid"></div>
+      <div id="groupDetails" style="margin-top:14px;"></div>
+    </section>
+
+    <section class="card">
+      <h2><span class="num">1</span>Метрики: на что влиять</h2>
+      <p class="sub">10 метрик вовлечённости. Важность — доля сотрудников, отметивших метрику как приоритетную для улучшения (из отчёта HJ). Цвет балла — по шкале HJ: &lt;7 критично, 7–8 зона внимания, 8–8.5 хорошо, &gt;8.5 отлично.</p>
+      <div class="ctrl">
+        <label for="thr">Порог внимания по баллу: <b id="thrVal">8.0</b></label>
+        <input type="range" id="thr" min="7" max="9" step="0.1" value="8">
+        <span style="color:var(--muted); font-size:12.5px;">субметрики и метрики ниже порога подсвечиваются и попадают в подборку</span>
+      </div>
+      <div id="metricsTable"></div>
+      <div id="influenceNote" style="margin-top:14px;"></div>
+    </section>
+
+    <section class="card">
+      <h2><span class="num">2</span>Подобранные инструменты</h2>
+      <p class="sub">Сценарии из матрицы инструментов, отсортированные по влиянию на приоритетные метрики. Учитываются: важность метрики для сотрудников, отставание от порога, влияние на eNPS/MPS, применимость к группам вашего подразделения, скорость и сложность. Карточки, отмеченные «В плане», попадают в план работы.</p>
+      <div class="btnrow" style="margin-top:0; margin-bottom:14px;">
+        <button class="act ghost" id="autoPick">Автоотбор: топ-8 в план</button>
+      </div>
+      <div class="tool-list" id="toolList"></div>
+    </section>
+
+    <section class="card">
+      <h2><span class="num">3</span>План работы с подразделением</h2>
+      <p class="sub">Сгруппирован по скорости внедрения. Контроль — повторный замер метрик в следующем цикле Happy Job.</p>
+      <div id="planBody"></div>
+      <div class="btnrow">
+        <button class="act" id="printBtn">Печать / сохранить в PDF</button>
+        <button class="act ghost" id="copyBtn">Скопировать план текстом</button>
+      </div>
+    </section>
+  </div>
+
+  <div class="warnbox" id="warnbox"></div>
+</main>
+<footer>Помощник работает с матрицей «Инструменты развития (V1)»: 43 сценария применения и каталог инструментов компании. Обработка данных — локально в браузере.</footer>
+
+<script type="application/json" id="data">{"scenarios": [{"when": "сотрудник хочет учиться, проседают навыки", "effect": "развитие, мотивация, удержание", "metric": "Карьера", "submetrics": "изучение нового для работы, реализация потенциала, помощь в развитии", "groups": ["Скептики", "Слабо вовлеченные"], "fits": "MPS, eNPS", "infl": {"eNPS": 2, "MPS": 3, "tNPS": 1}, "speed": "3", "complexity": 1, "quick": true}, {"when": "эксперты могут учить, нет обмена знаниями", "effect": "развитие, мотивация, удержание", "metric": "Карьера", "submetrics": "изучение нового для работы, реализация потенциала, помощь в развитии", "groups": ["Все группы"], "fits": "MPS, eNPS", "infl": {"eNPS": 2, "MPS": 3, "tNPS": 2}, "speed": "2", "complexity": 1, "quick": true}, {"when": "нужны свежие практики с рынка", "effect": "развитие, мотивация, удержание", "metric": "Карьера", "submetrics": "изучение нового для работы, реализация потенциала, помощь в развитии", "groups": ["Скептики", "Вовлеченные"], "fits": "MPS, eNPS", "infl": {"eNPS": 2, "MPS": 3, "tNPS": 1}, "speed": "3", "complexity": 2, "quick": true}, {"when": "сотрудник готов к лидерским ролям", "effect": "развитие, мотивация, удержание", "metric": "Карьера", "submetrics": "изучение нового для работы, реализация потенциала, прозрачность карьеры", "groups": ["Промоутеры", "Вовлеченные"], "fits": "MPS, eNPS", "infl": {"eNPS": 3, "MPS": 3, "tNPS": 1}, "speed": "6", "complexity": 2, "quick": true}, {"when": "сотрудник пишет плохой код, нужен SQL/Python", "effect": "развитие, мотивация, удержание", "metric": "Карьера", "submetrics": "изучение нового для работы, помощь в развитии, автономность в задачах", "groups": ["Невовлеченные", "Слабо вовлеченные"], "fits": "MPS", "infl": {"eNPS": 1, "MPS": 3, "tNPS": 1}, "speed": "3", "complexity": 1, "quick": true}, {"when": "руководитель не знает, как развивать команду", "effect": "развитие, мотивация, удержание, вовлеченность", "metric": "Процессы", "submetrics": "инициативность в процессах, интерес к задачам, конструктивный диалог", "groups": ["Скептики", "Слабо вовлеченные"], "fits": "tNPS, MPS", "infl": {"eNPS": 1, "MPS": 2, "tNPS": 3}, "speed": "1", "complexity": 1, "quick": true}, {"when": "сотрудник не знает, куда двигаться", "effect": "развитие, мотивация, удержание, вовлеченность", "metric": "Карьера", "submetrics": "помощь в развитии, реализация потенциала, прозрачность карьеры", "groups": ["Критики", "Скептики"], "fits": "MPS, eNPS", "infl": {"eNPS": 2, "MPS": 3, "tNPS": 1}, "speed": "1", "complexity": 1, "quick": true}, {"when": "сотрудник неуверен, не использует свои сильные стороны", "effect": "развитие, удержание, работа с результативностью", "metric": "Обратная связь", "submetrics": "конструктивная обратная связь, открытый диалог, структурированность встреч", "groups": ["Критики", "Слабо вовлеченные"], "fits": "MPS, eNPS", "infl": {"eNPS": 2, "MPS": 3, "tNPS": 1}, "speed": "1", "complexity": 1, "quick": true}, {"when": "руководитель не знает, как его видят", "effect": "развитие, удержание, работа с результативностью", "metric": "Обратная связь", "submetrics": "конструктивная обратная связь, открытый диалог, частота обратной связи", "groups": ["Критики", "Руководители"], "fits": "tNPS, eNPS", "infl": {"eNPS": 3, "MPS": 2, "tNPS": 3}, "speed": "1", "complexity": 2, "quick": false}, {"when": "нужно оценить управленческие навыки", "effect": "развитие, сложности с сотрудником", "metric": "Обратная связь", "submetrics": "конструктивная обратная связь, открытый диалог, помощь в задачах", "groups": ["Руководители"], "fits": "tNPS", "infl": {"eNPS": 1, "MPS": 2, "tNPS": 3}, "speed": "1", "complexity": 1, "quick": false}, {"when": "сотрудник не знает, как расти", "effect": "развитие, удержание, работа с результативностью", "metric": "Обратная связь", "submetrics": "конструктивная обратная связь, открытый диалог, структурированность встреч", "groups": ["Скептики", "Вовлеченные"], "fits": "MPS, eNPS", "infl": {"eNPS": 3, "MPS": 3, "tNPS": 2}, "speed": "2", "complexity": 2, "quick": false}, {"when": "сотрудник не знает, что нужно для роста", "effect": "развитие, мотивация, удержание", "metric": "Карьера", "submetrics": "прозрачность карьеры, помощь в развитии, реализация потенциала", "groups": ["Скептики", "Слабо вовлеченные"], "fits": "MPS, eNPS", "infl": {"eNPS": 2, "MPS": 3, "tNPS": 1}, "speed": "1", "complexity": 1, "quick": false}, {"when": "сотрудник не видит роста, заскучал", "effect": "развитие, мотивация, удержание", "metric": "Карьера", "submetrics": "прозрачность карьеры, реализация потенциала, автономность в задачах", "groups": ["Вовлеченные", "Промоутеры"], "fits": "MPS, eNPS", "infl": {"eNPS": 3, "MPS": 3, "tNPS": 2}, "speed": "3-6", "complexity": 2, "quick": false}, {"when": "раз в полгода нет плана развития", "effect": "развитие, удержание, работа с результативностью", "metric": "Обратная связь", "submetrics": "конструктивная обратная связь, структурированность встреч, открытый диалог", "groups": ["Все группы"], "fits": "MPS, eNPS, tNPS", "infl": {"eNPS": 3, "MPS": 3, "tNPS": 3}, "speed": "1", "complexity": 2, "quick": false}, {"when": "сотрудник хочет перейти, но не знает куда", "effect": "развитие, мотивация, удержание", "metric": "Карьера", "submetrics": "прозрачность карьеры, реализация потенциала, помощь в развитии", "groups": ["Скептики", "Вовлеченные"], "fits": "MPS, eNPS", "infl": {"eNPS": 2, "MPS": 3, "tNPS": 1}, "speed": "1", "complexity": 1, "quick": false}, {"when": "сотрудник готов к новой роли", "effect": "развитие, мотивация, удержание", "metric": "Карьера", "submetrics": "прозрачность карьеры, реализация потенциала, помощь в развитии", "groups": ["Промоутеры", "Вовлеченные"], "fits": "MPS, eNPS", "infl": {"eNPS": 3, "MPS": 3, "tNPS": 1}, "speed": "3", "complexity": 2, "quick": false}, {"when": "в команде накопились проблемы", "effect": "развитие, решение накопившихся проблем в команде", "metric": "Коллеги", "submetrics": "качество взаимодействия, эффективность коммуникации, комфортная атмосфера", "groups": ["Критики", "Скептики"], "fits": "tNPS, MPS, eNPS", "infl": {"eNPS": 3, "MPS": 2, "tNPS": 3}, "speed": "2", "complexity": 2, "quick": false}, {"when": "сотрудник хочет слушать лекции экспертов", "effect": "развитие, мотивация, удержание", "metric": "Карьера", "submetrics": "изучение нового для работы, помощь в развитии, реализация потенциала", "groups": ["Все группы"], "fits": "MPS, eNPS", "infl": {"eNPS": 1, "MPS": 2, "tNPS": 1}, "speed": "1", "complexity": 1, "quick": false}, {"when": "плохие 1-1, нет адаптации", "effect": "адаптация, развитие", "metric": "Руководитель", "submetrics": "эффективность лидерства, нацеленность на результат, четкость задач", "groups": ["Руководители"], "fits": "tNPS, MPS", "infl": {"eNPS": 2, "MPS": 2, "tNPS": 3}, "speed": "2", "complexity": 2, "quick": false}, {"when": "сотрудники не делятся опытом вовне", "effect": "развитие, мотивация, удержание, продвижение/пиар", "metric": "Признание", "submetrics": "частота похвалы, обоснованность похвалы, искренность похвалы, культура признания", "groups": ["Промоутеры", "Вовлеченные"], "fits": "eNPS, MPS", "infl": {"eNPS": 3, "MPS": 2, "tNPS": 1}, "speed": "2", "complexity": 2, "quick": false}, {"when": "специалисты изолированы, не общаются", "effect": "развитие, мотивация, удержание", "metric": "Коллеги", "submetrics": "качество взаимодействия, эффективность коммуникации, комфортная атмосфера", "groups": ["Все группы"], "fits": "tNPS, MPS, eNPS", "infl": {"eNPS": 2, "MPS": 2, "tNPS": 3}, "speed": "2", "complexity": 2, "quick": false}, {"when": "сотрудники хотят проявить себя", "effect": "развитие, мотивация, удержание, продвижение/пиар", "metric": "Признание", "submetrics": "своевременность похвалы, обоснованность похвалы, культура признания", "groups": ["Промоутеры", "Вовлеченные"], "fits": "eNPS, MPS", "infl": {"eNPS": 3, "MPS": 2, "tNPS": 1}, "speed": "1", "complexity": 2, "quick": false}, {"when": "сотрудники не делятся знаниями", "effect": "развитие, мотивация, удержание, продвижение/пиар", "metric": "Признание", "submetrics": "частота похвалы, искренность похвалы, культура признания", "groups": ["Все группы"], "fits": "eNPS, MPS", "infl": {"eNPS": 3, "MPS": 2, "tNPS": 1}, "speed": "1", "complexity": 1, "quick": true}, {"when": "сотрудник хочет учиться, но дорого", "effect": "развитие, мотивация, удержание", "metric": "Условия и оплата", "submetrics": "удовлетворенность льготами, удовлетворенность зарплатой, комфорт рабочего места", "groups": ["Критики", "Скептики"], "fits": "eNPS", "infl": {"eNPS": 3, "MPS": 1, "tNPS": 1}, "speed": "1", "complexity": 1, "quick": false}, {"when": "сотрудник хочет читать по работе", "effect": "развитие, мотивация, удержание", "metric": "Карьера", "submetrics": "изучение нового для работы, помощь в развитии, реализация потенциала", "groups": ["Все группы"], "fits": "MPS, eNPS", "infl": {"eNPS": 1, "MPS": 2, "tNPS": 1}, "speed": "1", "complexity": 1, "quick": false}, {"when": "сотрудник хочет показать уровень", "effect": "развитие, мотивация, удержание", "metric": "Признание", "submetrics": "частота похвалы, обоснованность похвалы, своевременность похвалы, культура признания", "groups": ["Промоутеры"], "fits": "eNPS, MPS", "infl": {"eNPS": 3, "MPS": 2, "tNPS": 1}, "speed": "2", "complexity": 2, "quick": false}, {"when": "сотрудник хочет участвовать в WorldSkills", "effect": "развитие, мотивация, удержание, признание", "metric": "Признание", "submetrics": "частота похвалы, обоснованность похвалы, культура признания", "groups": ["Промоутеры"], "fits": "eNPS, MPS", "infl": {"eNPS": 3, "MPS": 2, "tNPS": 1}, "speed": "3", "complexity": 2, "quick": false}, {"when": "клиенты недовольны, ошибки в коммуникации", "effect": "развитие, повышение качества сервиса/взаимодействия", "metric": "Процессы", "submetrics": "ресурсы для ежедневных задач, интерес к задачам, инициативность в процессах", "groups": ["Невовлеченные"], "fits": "tNPS", "infl": {"eNPS": 1, "MPS": 2, "tNPS": 3}, "speed": "1", "complexity": 1, "quick": false}, {"when": "сотрудник не понимает льгот, финансов", "effect": "лояльность, развитие", "metric": "Условия и оплата", "submetrics": "удовлетворенность зарплатой, удовлетворенность льготами, безопасность труда", "groups": ["Критики"], "fits": "eNPS", "infl": {"eNPS": 3, "MPS": 1, "tNPS": 1}, "speed": "1", "complexity": 1, "quick": true}, {"when": "менторы не знают, как обучать", "effect": "адаптация, развитие", "metric": "Руководитель", "submetrics": "эффективность лидерства, доверие руководителю, нацеленность на результат", "groups": ["Руководители"], "fits": "tNPS, MPS, eNPS", "infl": {"eNPS": 2, "MPS": 2, "tNPS": 3}, "speed": "2", "complexity": 2, "quick": false}, {"when": "новичок не вливается, много ошибок", "effect": "адаптация, развитие, мотивация, удержание", "metric": "Коллеги", "submetrics": "качество взаимодействия, эффективность коммуникации, комфортная атмосфера", "groups": ["Невовлеченные", "Слабо вовлеченные"], "fits": "tNPS, MPS, eNPS", "infl": {"eNPS": 3, "MPS": 3, "tNPS": 3}, "speed": "2", "complexity": 2, "quick": false}, {"when": "молодые сотрудники не предлагают идеи", "effect": "развитие, мотивация", "metric": "Изменения", "submetrics": "качество информирования, командная работа, анализ причин неудач", "groups": ["Скептики", "Вовлеченные"], "fits": "MPS, eNPS", "infl": {"eNPS": 2, "MPS": 3, "tNPS": 1}, "speed": "2", "complexity": 1, "quick": false}, {"when": "компанию не узнают, эксперты не видны", "effect": "развитие, мотивация, продвижение/пиар", "metric": "Признание", "submetrics": "частота похвалы, обоснованность похвалы, культура признания, искренность похвалы", "groups": ["Промоутеры"], "fits": "eNPS, MPS", "infl": {"eNPS": 3, "MPS": 2, "tNPS": 1}, "speed": "3", "complexity": 2, "quick": false}, {"when": "сотрудники не вовлечены в развитие", "effect": "вовлеченность, развитие", "metric": "Изменения", "submetrics": "качество информирования, командная работа, инициативность", "groups": ["Промоутеры", "Вовлеченные"], "fits": "MPS, eNPS", "infl": {"eNPS": 2, "MPS": 3, "tNPS": 1}, "speed": "2", "complexity": 1, "quick": false}, {"when": "сотрудники не вовлечены в ценности", "effect": "развитие, мотивация, продвижение/пиар", "metric": "Признание", "submetrics": "частота похвалы, культура признания, искренность похвалы", "groups": ["Промоутеры"], "fits": "eNPS, MPS", "infl": {"eNPS": 3, "MPS": 2, "tNPS": 1}, "speed": "2", "complexity": 2, "quick": false}, {"when": "команда не общается, нет динамики", "effect": "развитие, информированность, вовлеченность", "metric": "Коллеги", "submetrics": "качество взаимодействия, эффективность коммуникации, комфортная атмосфера", "groups": ["Все группы"], "fits": "tNPS, MPS, eNPS", "infl": {"eNPS": 2, "MPS": 2, "tNPS": 3}, "speed": "1", "complexity": 1, "quick": false}, {"when": "нет культуры обмена опытом, синдром самозванца, застой", "effect": "развитие, информированность, вовлеченность", "metric": "Признание", "submetrics": "частота похвалы, искренность похвалы, культура признания", "groups": ["Все группы"], "fits": "eNPS, MPS", "infl": {"eNPS": 3, "MPS": 2, "tNPS": 1}, "speed": "1", "complexity": 1, "quick": true}, {"when": "боятся говорить, низкая вовлечённость", "effect": "развитие, решение проблем, мотивация, доверие, поддержка, удержание", "metric": "Обратная связь", "submetrics": "конструктивная обратная связь, открытый диалог, частота обратной связи, помощь в задачах", "groups": ["Критики", "Невовлеченные"], "fits": "tNPS, MPS, eNPS", "infl": {"eNPS": 3, "MPS": 3, "tNPS": 1}, "speed": "1", "complexity": 1, "quick": true}, {"when": "низкий eNPS, не знаем причин", "effect": "развитие, решение проблем, мотивация", "metric": "Обратная связь", "submetrics": "частота обратной связи, открытый диалог, конструктивная обратная связь", "groups": ["Все группы"], "fits": "tNPS, eNPS", "infl": {"eNPS": 3, "MPS": 1, "tNPS": 3}, "speed": "1", "complexity": 1, "quick": true}, {"when": "команда не общается, низкий дух", "effect": "развитие, решение проблем, мотивация", "metric": "Баланс", "submetrics": "баланс работы и личной жизни, уровень счастья на работе, уровень стресса", "groups": ["Все группы"], "fits": "eNPS", "infl": {"eNPS": 3, "MPS": 1, "tNPS": 1}, "speed": "1", "complexity": 1, "quick": false}, {"when": "много вопросов к лиду, ошибки в задачах", "effect": "онбординг, развитие", "metric": "Процессы", "submetrics": "ресурсы для ежедневных задач, качество работы коллег, конструктивный диалог", "groups": ["Невовлеченные", "Слабо вовлеченные"], "fits": "tNPS, MPS, eNPS", "infl": {"eNPS": 2, "MPS": 2, "tNPS": 3}, "speed": "1", "complexity": 1, "quick": false}, {"when": "сотрудник заскучал, хочет новое", "effect": "развитие, мотивация", "metric": "Карьера", "submetrics": "прозрачность карьеры, реализация потенциала, автономность в задачах", "groups": ["Вовлеченные", "Промоутеры"], "fits": "MPS, eNPS, tNPS", "infl": {"eNPS": 2, "MPS": 3, "tNPS": 2}, "speed": "3", "complexity": 2, "quick": false}, {"when": "высокая текучка ветеранов", "effect": "лояльность, вовлеченность, признание, удержание", "metric": "Признание", "submetrics": "частота похвалы, культура признания в компании, искренность похвалы", "groups": ["Промоутеры"], "fits": "eNPS", "infl": {"eNPS": 3, "MPS": 1, "tNPS": 1}, "speed": "1", "complexity": 1, "quick": false}], "catalog": [{"module": "Обучение руководителей", "name": "Линейному руководителю", "desc": "Обучение: Бизнес-навыки для эффективного взаимодействия с командой", "link": "https://afisha-university.rt.ru/leader#1"}, {"module": "Обучение руководителей", "name": "Руководителю среднего звена", "desc": "Обучение: PROкачай своё лидерство", "link": "https://afisha-university.rt.ru/leader#2"}, {"module": "Обучение руководителей", "name": "ТОП-руководителю", "desc": "Обучение в лучших российских бизнес-школах. Обучение проводится на условиях софинансирования. Количество мест на набор ограничено.", "link": "https://afisha-university.rt.ru/leader#3"}, {"module": "Обучение руководителей", "name": "Путь руководителя", "desc": "Курс для тех, кто не более 1 года назад был принят на должность руководителя (тимлида, РП, техлида и т.п) или переведен на эту должность внутри компании, либо только готовится к переводу\n\nИмеет опыт управления до 2 лет", "link": "https://rtkitschool.ru/way_start"}, {"module": "Обучение руководителей", "name": "Коучинг", "desc": "", "link": ""}, {"module": "Развитие команд", "name": "Диагностика команды", "desc": "Диагностика команды определит зоны роста команды, ее боли и потребности. Проще говоря — подскажем, с чего начать развитие людей и как.", "link": "https://afisha-university.rt.ru/team#diag"}, {"module": "Развитие команд", "name": "Практикумы и тренинги", "desc": "Практикум — это мастер-класс для вашей команды. Это не лекция: команду ждет активная работа и отработка инструментов на практике. Содержание практикума адаптируется под запрос команды. А еще это возможность провести время всем вместе. Онлайн или офлайн.", "link": "https://afisha-university.rt.ru/team#prac"}, {"module": "Развитие команд", "name": "Командный коучинг", "desc": "Командный коучинг помогает найти баланс между эффективностью и человечностью, сформулировать цели, миссию и ценности команды. Вместе с коучем команда научится быстрее и проще достигать командные цели.", "link": "https://afisha-university.rt.ru/team#team"}, {"module": "Развитие команд", "name": "Бизнес-игры", "desc": "Команда может развивать бизнес-навыки через игру. Узнать модели поведения команды в стрессовой ситуации. Научиться работать с потерями в непредсказуемых условиях. Научиться придумывать верные решения для сложных задач.", "link": "https://afisha-university.rt.ru/team#game"}, {"module": "Развитие команд", "name": "Наставничество", "desc": "Программа Наставничества направлена на эффективное введение в должность новых сотрудников компании", "link": "https://www.portal.rt.ru/wps/portal/Home/projects/adaptation"}, {"module": "Развитие команд", "name": "Фасилитация", "desc": "Фасилитация — это методика организации обсуждения в группе. Например, если команда не может договориться внутри, фасилитатор построит встречу так, чтобы прийти к единому решению.", "link": "https://afisha-university.rt.ru/team#fasil"}, {"module": "Развитие карьеры внутри компании", "name": "Точка роста", "desc": "Платформа для бесплатных консультаций с менторами, коучами и карьерными консультантами.", "link": "https://www.portal.rt.ru/wps/portal/Home/projects/Grow-up#/"}, {"module": "Развитие карьеры внутри компании", "name": "Карьерные треки в ИТ", "desc": "Карьерные треки, поиск вакансий, создание карьерного профиля (анкета внутреннего кандидата)", "link": "https://www.portal.rt.ru/wps/portal/Home/personal/career"}, {"module": "Развитие карьеры внутри компании", "name": "Ротация в ИТ", "desc": "Если в текущей команде сотрудник не видит путей для своего роста, то он может перейти в другое подразделение на другой проект в Группе компаний «Ростелеком» при наличии подходящих вакансий", "link": "https://portal.it.rt.ru/categories/24/151"}, {"module": "Развитие карьеры внутри компании", "name": "ИПР", "desc": "План мероприятий для развития навыков сотрудника с индивидуальными сроками, целью и способами обучения. ИПР должен соответствовать бизнес-целям команды, а инициатором и исполнителем его является сам сотрудник.", "link": ""}, {"module": "Развитие карьеры внутри компании", "name": "Твоя карьерная траектория", "desc": "Программа адаптивного кадрового резерва “Ростелекома”, которая позволит тебе управлять возможностями и развивать персональные карьерные треки в компании.", "link": ""}, {"module": "Сообщества в компании", "name": "Гильдия", "desc": "Объединения позволяют сотрудникам обмениваться знаниями, опытом и идеями, как внутри комапании, так и в группе компании.", "link": "https://portal.it.rt.ru/categories/8/109"}, {"module": "Сообщества в компании", "name": "Молодежный совет", "desc": "Развитие и поддержка культуры работы с идеями и внутреннего предпринимательства", "link": "https://www.portal.rt.ru/wps/portal/Home/projects/Molodomu-sotrudniku/molodezhnyj-sovet"}, {"module": "Сообщества в компании", "name": "Эксперты «Ростелекома»", "desc": "Программа развития личных экспертных брендов сотрудников «Эксперты Ростелекома» — это новые возможности для профессионального и карьерного развития сотрудников компании.", "link": "https://www.portal.rt.ru/wps/portal/Home/projects/experts"}, {"module": "Сообщества в компании", "name": "Клуб сталкеров", "desc": "Сталкеры – это сообщество активных профессионалов, которые готовы улучшать продукты компании.", "link": "https://www.portal.rt.ru/wps/portal/Home/projects/StalkerClub"}, {"module": "Сообщества в компании", "name": "Клуб амбасадоров", "desc": "Амбассадоры «Ростелекома»- они разделяют миссию и ценности компании, делятся своими знаниями и создают уютную атмосферу на работе и не только.", "link": "https://www.portal.rt.ru/wps/portal/Home/projects/ambasadory"}, {"module": "Награды в компании", "name": "Проект «Герои стажа»", "desc": "Мы особенно признательны сотрудникам, которые выбирают оставаться частью команды ГК «Ростелеком» на многие годы. Чтобы отметить их вклад в развитие компании, мы назначаем медали в личном кабинете на портале за каждые пять лет стажа в ГК.", "link": "https://portal.it.rt.ru/categories/1/165"}, {"module": "Награды в компании", "name": "Премия «Твой ход»", "desc": "Возможность показать, что каждый вклад важен, а любая идея или действие могут стать решающими.", "link": ""}, {"module": "Награды в компании", "name": "Премия «Гордость ИТ»", "desc": "Возможность отметить сотрудников ИТ-команды, которые меняют компанию, технологии и делает нас лидерами отрасли.", "link": "https://portal.it.rt.ru/categories/28/193"}, {"module": "Награды в компании", "name": "Благодарности на День компании ПАО \"Ростелеком\"", "desc": "Возможность поощрить сотрудников нашей компании Благодарностями ПАО «Ростелеком» за подписью Президента ПАО «Ростелеком» Осеевского М.Э..Условия подачи на Благодарность ПАО «Ростелеком» – стаж работы в группе компании не менее 3-х лет, основное место работы. Подается в августе.", "link": ""}, {"module": "Награды в компании", "name": "Благодарности ко дню радио", "desc": "Возможность поощрить сотрудников нашей компании к профессиональному празднику связистов Благодарностью за подписью Президента ПАО «Ростелеком» Осеевского М.Э..Условия подачи на Благодарность – стаж работы в группе компании не менее 3-х лет. Подается в марте.", "link": ""}, {"module": "Награды в компании", "name": "Ведомственные награды Минцифры: благодарность, почетная грамота, Мастер связи", "desc": "Благодарность - за конкретный существенный личный вклад в совершенствование телекоммуникационного комплекса страны, развитие новых информационных технологий, реализацию социально-экономических программ в отрасли. Стаж работы по последней должности – не менее года, по стажу работы в отрасли требований нет.\n \nПочетная грамота – работники, внесшие значительный вклад в развитие инфокоммуникационного комплекса страны и имеющие трудовой стаж в отрасли 10 и более лет.\nСтаж работы по последней должности – не менее года.\n \nМастера связи – наличие заслуг, стажа в отрасли не менее 15 лет, стажа в Обществе непосредственно перед награждением не менее 3 лет и любой из ведомственных наград Минцифры (Почетной грамоты, Благодарности), полученных не ранее 3-х лет назад.", "link": ""}, {"module": "Спортивные сообщества", "name": "Сквош", "desc": "Поддерживаем сотрудников в их увлечениях и помогаем объединяться с единомышленниками внутри компании. У нас есть корпоративные сообщества по бегу, сквошу, настольным играм и другим активностям — каждое создавалось по инициативе сотрудников, а внутренние коммуникации помогали с реализацией.", "link": "https://portal.it.rt.ru/categories/3/158"}, {"module": "Спортивные сообщества", "name": "Беговой клуб", "desc": "Поддерживаем сотрудников в их увлечениях и помогаем объединяться с единомышленниками внутри компании. У нас есть корпоративные сообщества по бегу, сквошу, настольным играм и другим активностям — каждое создавалось по инициативе сотрудников, а внутренние коммуникации помогали с реализацией.", "link": "https://portal.it.rt.ru/categories/3/158"}, {"module": "Спортивные сообщества", "name": "Волейбол", "desc": "Поддерживаем сотрудников в их увлечениях и помогаем объединяться с единомышленниками внутри компании. У нас есть корпоративные сообщества по бегу, сквошу, настольным играм и другим активностям — каждое создавалось по инициативе сотрудников, а внутренние коммуникации помогали с реализацией.", "link": "https://portal.it.rt.ru/categories/3/158"}, {"module": "Спортивные сообщества", "name": "RT -баланс", "desc": "Мобильное приложение для сотрудников Ростелекома, увлечённых здоровым образом жизни, спортом и саморазвитием. Внутри есть программы тренировок, полезные материалы, чат для общения и не только.", "link": "Apple - https://apps.apple.com/ru/app/%D1%80%D1%82-%D0%B1%D0%B0%D0%BB%D0%B0%D0%BD%D1%81/id1577588850\nAndroid - https://play.google.com/store/apps/details?id=dpromo.app.rt&hl=ru&pli=1"}, {"module": "Спортивные сообщества", "name": "Скидки на фитнес", "desc": "Скидки от партнёров", "link": "https://skidki.rt.ru/"}, {"module": "Спортивные сообщества", "name": "OCR гонки", "desc": "Поддерживаем сотрудников в их увлечениях и помогаем объединяться с единомышленниками внутри компании. У нас есть корпоративные сообщества по бегу, сквошу, настольным играм и другим активностям — каждое создавалось по инициативе сотрудников, а внутренние коммуникации помогали с реализацией.", "link": "https://portal.it.rt.ru/categories/3/158"}, {"module": "Обратная связь", "name": "Пульс -опрос", "desc": "Сервис сбора обратной связи в Онлайн-университете, который состоит из нескольких вопросов и поля для открытого комментария коллег. Получение обратной связи — ключевой элемент профессионального роста.", "link": "https://university.rt.ru/feedback/poll"}, {"module": "Обратная связь", "name": "Обратная связь 360", "desc": "Инструмент, который помогает выявить различия между своей оценкой себя и оценкой другими людьми: коллегами, руководством, клиентами, подчинёнными.   С помощью опроса 360 оценка проводится со всех сторон, заказать её можно на Helpme, услуга «Заявка на оценку сотрудников».", "link": "https://helpme.rt.ru/login"}, {"module": "Обратная связь", "name": "Проведение 1:1", "desc": "Регулярная личная встреча руководителя с каждым сотрудником. Она позволяет обсуждать приоритеты, проблемы и давать обратную связь в формате, неудобном для общих собраний.", "link": "https://university.rt.ru/view_doc.html?mode=course&doc_id=&object_id=7253967260942694986"}, {"module": "Здоровье", "name": "Психолог (уточнить входит в ДМС?)", "desc": "Получить психологическую помощь можно в рамках программы добровольного медицинского страхования (ДМС) через сервис телемедицины. Воспользоваться услугами психологов в рамках ДМС могут сотрудники, оформившие полис страхования в Кафетерии льгот.", "link": "https://portal.it.rt.ru/categories/3/69"}, {"module": "Здоровье", "name": "Телемедицина", "desc": "Сервис даёт возможность пообщаться с врачом в любом месте, где есть интеренет. Доступно в рамках ДМС", "link": "https://portal.it.rt.ru/categories/6/57"}, {"module": "Здоровье", "name": "Лектория \"Здоровья\"", "desc": "Онлайн-лекторий: Забота о себе", "link": "https://university.rt.ru/view_doc.html?mode=knowledge_classifier&object_id=7086899591198300845&doc_id=6644789508237046049"}, {"module": "Здоровье", "name": "Санаторий", "desc": "Программа направлена на поддержание и укрепление здоровья наших коллег. Сбор заявок на получение бесплатных путёвок начинается в феврале.", "link": "https://portal.it.rt.ru/categories/4/157"}, {"module": "Условия оплаты труда", "name": "SI", "desc": "Ежегодная процедура повышения сотруников с низким уровнем проплаченности, при наличии бюджета БОРУП ПАО РТК.", "link": ""}, {"module": "Условия оплаты труда", "name": "Проектная мотивация", "desc": "В Программе проектной мотивации участвуют: 1.Проекты, создающие уникальный результат, позволяющий Компании извлекать инкрементальную выгоду или создающие условия для получения такой выгоды. 2. Проекты, меняющие траекторию текущего бизнеса, создающие принципиально новые / инновационные, или очень глубоко меняющие существующие продукты, решения, системы, процессы.", "link": ""}, {"module": "Условия оплаты труда", "name": "Аустендинг", "desc": "Дополнительная мотивация для увеличения выручки, поддержки реализации комплексных ИТ-сервисов и сопутствующих услуг, развития модели продаж, ориентированной на собственные и партнерские продукты и технологии в рамках Коммерческого ИТ-Кластера, координации работы с внешними Заказчиками.", "link": ""}, {"module": "Условия оплаты труда", "name": "Фонд руководителя", "desc": "Инструмент мотивации, который позволяет руководителю (директору, генеральному директору, начальнику департамента) оперативно и адресно поощрять сотрудников за выдающиеся результаты, выполнение особо важных задач или решение срочных проблем, не дожидаясь стандартных процедур согласования премий (например, квартального бонуса).", "link": ""}]}</script>
+<script>
+"use strict";
+const DATA = JSON.parse(document.getElementById('data').textContent);
+const SCENARIOS = DATA.scenarios, CATALOG = DATA.catalog;
+pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+/* ---------- Канонический список метрик HJ и их субметрик ---------- */
+const METRICS = [
+  {name:'Руководитель',      subs:['Четкость','Доверие','Лидерство','Продуктивность','Совещания']},
+  {name:'Стратегия',         subs:['Знание','Достижимость','Актуализация','Оценка','Инициативность']},
+  {name:'Признание',         subs:['Частота','Обоснование','Своевременность','Культура','Искренность']},
+  {name:'Обратная связь',    subs:['Частота','Структура','Результат','Диалог','Конструктив']},
+  {name:'Процессы',          subs:['Ресурсы','Клиенты','Интерес','Диалог','Инициативность']},
+  {name:'Изменения',         subs:['Информация','Барьеры','Планирование','Ресурсы','Оценка']},
+  {name:'Коллеги',           subs:['Отношения','Взаимопонимание','Коммуникации','Правила','Взаимодействие']},
+  {name:'Баланс',            subs:['Питание','Счастье','Стресс','Фитнес','Баланс']},
+  {name:'Карьера',           subs:['Понятность','Автономность','Обучение','Реализация','Наставничество']},
+  {name:'Условия и оплата',  subs:['Оплата','Льготы','Условия труда','Безопасность','Комфорт труда']}
+];
+const METRIC_BY_NAME = {}; METRICS.forEach(m=>METRIC_BY_NAME[m.name]=m);
+
+/* Модули каталога (Лист 2) по метрикам */
+const METRIC_MODULES = {
+  'Руководитель':      ['Обучение руководителей'],
+  'Карьера':           ['Развитие карьеры внутри компании'],
+  'Коллеги':           ['Развитие команд','Сообщества в компании'],
+  'Обратная связь':    ['Обратная связь'],
+  'Признание':         ['Награды в компании','Сообщества в компании'],
+  'Условия и оплата':  ['Условия оплаты труда','Здоровье'],
+  'Баланс':            ['Спортивные сообщества','Здоровье'],
+  'Процессы':          ['Развитие команд'],
+  'Изменения':         ['Сообщества в компании'],
+  'Стратегия':         ['Развитие команд']
+};
+
+/* ---------- Парсинг PDF ---------- */
+function rowsFromItems(items){
+  const sorted = items.slice().sort((a,b)=> b.y - a.y || a.x - b.x);
+  const rows = [];
+  for(const it of sorted){
+    let r = rows.find(r=> Math.abs(r.y - it.y) <= 3);
+    if(!r){ r = {y:it.y, items:[]}; rows.push(r); }
+    r.items.push(it);
+  }
+  rows.sort((a,b)=> b.y - a.y);
+  for(const r of rows){
+    r.items.sort((a,b)=>a.x-b.x);
+    r.text = r.items.map(i=>i.s).join(' ').replace(/\s+/g,' ').trim();
+  }
+  return rows;
+}
+const isNum = s => /^[+]?\d+(?:[.,]\d+)?%?$/.test(s.trim());
+const decNum = s => /^\d+[.,]\d+$/.test(s.trim());
+
+async function parsePdf(buf){
+  const pdf = await pdfjsLib.getDocument({data:buf}).promise;
+  const pages = [];
+  for(let i=1;i<=pdf.numPages;i++){
+    const page = await pdf.getPage(i);
+    const tc = await page.getTextContent();
+    const items = tc.items.map(it=>({s:it.str, x:it.transform[4], y:it.transform[5]}));
+    pages.push({n:i, items, text: items.map(x=>x.s).join(' ').replace(/\s+/g,' '), rows: rowsFromItems(items)});
+  }
+  const R = {warnings:[]};
+
+  /* --- подразделение, цикл, участие --- */
+  for(const p of pages){
+    const m = p.text.match(/(\d+)\s*из\s*(\d+)/);
+    if(m && /Статистика участия|Количество оценивших|Прогресс/.test(p.text)){
+      R.participation = {voted:+m[1], total:+m[2], pct: Math.round(100*m[1]/m[2])};
+      const row = p.rows.find(r=> /\d+\s*из\s*\d+/.test(r.text));
+      if(row){
+        let name = row.text.replace(/\d+\s*из\s*\d+\s*\d*%?\s*$/,'').replace(/\d+%$/,'').trim();
+        R.unit = name || R.unit;
+      }
+    }
+  }
+  const cyc = pages[0].rows.find(r=> /^Цикл:/.test(r.text));
+  if(cyc) R.cycle = cyc.text.replace(/^Цикл:\s*/,'');
+  if(!R.unit){ const u = pages[0].rows.find(r=> r.text && !/^Цикл:/.test(r.text) && !/Результаты исследования|на платформе|Happy Job/i.test(r.text)); if(u) R.unit = u.text; }
+
+  /* --- карта метрик (по среднему баллу) --- */
+  const mapPage = pages.find(p=> /Карта метрик/.test(p.text) && /среднему баллу/.test(p.text));
+  if(mapPage){
+    R.metrics = {};
+    for(const met of METRICS){
+      // строка подписей: содержит >=4 названий субметрик
+      const labelRow = mapPage.rows.find(r=>{
+        const t = ' ' + r.text.toLowerCase() + ' ';
+        return met.subs.filter(s=> t.includes(s.toLowerCase())).length >= 4;
+      });
+      let vals = null;
+      if(labelRow){
+        // значения лежат полосой над строкой подписей (у двухстрочных метрик — двумя строками)
+        const lo = labelRow.y, hi = labelRow.y + 26;
+        const nums = mapPage.items
+          .filter(it=> decNum(it.s.trim()) && it.y > lo && it.y <= hi)
+          .sort((a,b)=> b.y - a.y || a.x - b.x)
+          .map(it=> parseFloat(it.s));
+        if(nums.length >= met.subs.length) vals = nums;
+      }
+      if(vals){
+        const subs = met.subs.map((s,i)=>({name:s, score: vals.length===met.subs.length+1 ? vals[i+1] : (vals.length===met.subs.length? vals[i] : null)}));
+        R.metrics[met.name] = {score: vals.length===met.subs.length+1 ? vals[0] : null, subs};
+      } else R.warnings.push('Не удалось разобрать метрику «'+met.name+'»');
+    }
+  } else R.warnings.push('Не найдена «Карта метрик» в отчёте');
+
+  /* --- приоритеты (важность метрик) --- */
+  const prPage = pages.find(p=> /Приоритеты/.test(p.text) && /Важность|важно улучшить|УЛУЧШИТЬ ДЛЯ ВСЕХ/i.test(p.text));
+  if(prPage){
+    R.priorities = {};
+    for(const met of METRICS){
+      const tokens = met.name.toUpperCase().split(' ');
+      const lab = prPage.items.filter(it=> tokens.includes(it.s.trim().toUpperCase()));
+      if(!lab.length) continue;
+      const yc = lab.reduce((a,b)=>a+b.y,0)/lab.length;
+      const maxX = Math.max(...lab.map(i=>i.x));
+      const near = it => Math.abs(it.y - yc) <= 14 && it.x > maxX - 5;
+      const pcts = prPage.items.filter(it=> /%$/.test(it.s.trim()) && near(it))
+                  .map(it=>({v:parseFloat(it.s), dy:Math.abs(it.y-yc)})).sort((a,b)=>a.dy-b.dy);
+      const scores = prPage.items.filter(it=> decNum(it.s.trim()) && near(it))
+                  .map(it=>({v:parseFloat(it.s), dy:Math.abs(it.y-yc)})).sort((a,b)=>a.dy-b.dy);
+      if(pcts.length) R.priorities[met.name] = {importance: pcts[0].v, score: scores.length? scores[0].v : (R.metrics&&R.metrics[met.name]?R.metrics[met.name].score:null)};
+    }
+  } else R.warnings.push('Не найден раздел «Приоритеты» — важность метрик не определена');
+
+  /* --- группы сотрудников (вовлечённость / лояльность / удовлетворённость / eNPS) --- */
+  function groupsFrom(page, order){
+    const flat = page.items.slice().sort((a,b)=> b.y-a.y || a.x-b.x);
+    const i = flat.findIndex(it=> /^Ваши\s+группы/.test(it.s.trim()) || it.s.trim()==='группы');
+    if(i<0) return null;
+    const nums = [];
+    for(let j=i+1; j<Math.min(i+25, flat.length) && nums.length<3; j++){
+      const t = flat[j].s.trim();
+      if(decNum(t)) nums.push(parseFloat(t));
+    }
+    return nums.length===3 ? order.map((n,k)=>({name:n, pct:nums[k]})) : null;
+  }
+  const engPage = pages.find(p=> /Ваши\s+группы/.test(p.text) && /Невовлеченные/.test(p.text));
+  const loyPage = pages.find(p=> /Ваши\s+группы/.test(p.text) && /Нелояльные/.test(p.text));
+  const satPage = pages.find(p=> /Ваши\s+группы/.test(p.text) && /Низкая,\s*%/.test(p.text));
+  const npsPage = pages.find(p=> /Ваши\s+группы/.test(p.text) && /Промоутеры/.test(p.text));
+  if(engPage) R.engGroups = groupsFrom(engPage, ['Невовлеченные','Слабо вовлеченные','Вовлеченные']);
+  if(loyPage) R.loyGroups = groupsFrom(loyPage, ['Нелояльные','Слабо лояльные','Лояльные']);
+  if(satPage) R.satGroups = groupsFrom(satPage, ['Низкая','Средняя','Высокая']);
+  if(npsPage){
+    R.npsGroups = groupsFrom(npsPage, ['Критики','Скептики','Промоутеры']);
+    if(R.npsGroups){
+      const P = R.npsGroups.find(g=>g.name==='Промоутеры').pct, C = R.npsGroups.find(g=>g.name==='Критики').pct;
+      R.eNPS = Math.round((P-C)*10)/10;
+    }
+  }
+  return R;
+}
+
+/* ---------- Логика подбора ---------- */
+function groupShares(R){
+  const s = {};
+  (R.engGroups||[]).forEach(g=> s[g.name]=g.pct);
+  (R.npsGroups||[]).forEach(g=> s[g.name]=g.pct);
+  return s;
+}
+function applicShare(scn, shares){
+  if(scn.groups.includes('Все группы')) return 100;
+  if(scn.groups.includes('Руководители')) return 60;
+  let m = 0;
+  scn.groups.forEach(g=>{ if(shares[g]!=null) m = Math.max(m, shares[g]); });
+  return m;
+}
+function speedMonths(s){ const v = parseFloat(s); return isNaN(v)? 3 : v; }
+function phaseOf(s){
+  const v = speedMonths(s);
+  if(v<=1) return 0;
+  if(v<=3) return 1;
+  return 2;
+}
+const PHASES = [
+  {t:'Быстрые победы', w:'первые 1–2 месяца'},
+  {t:'Системные действия', w:'2–3 месяца'},
+  {t:'Стратегические инициативы', w:'3–6 месяцев'}
+];
+
+function scoreScenario(scn, R, thr, shares){
+  const pr = R.priorities && R.priorities[scn.metric];
+  const imp = pr ? pr.importance : 0;
+  const m = R.metrics && R.metrics[scn.metric];
+  const deficit = (m && m.score!=null) ? Math.max(0, thr - m.score) : 0;
+  const weakSubs = m ? m.subs.filter(s=> s.score!=null && s.score < thr).length : 0;
+  let s = imp*0.42 + Math.min(deficit*16,16) + Math.min(weakSubs*2.5,7.5)
+        + scn.infl.MPS*5 + scn.infl.eNPS*1.5
+        + (scn.quick?8:0);
+  const spd = speedMonths(scn.speed);
+  s += spd<=1?6 : spd<=3?3 : 0;
+  s -= (scn.complexity-1)*2.5;
+  s += applicShare(scn, shares)*0.06;
+  return s;
+}
+function catalogFor(metric){
+  const mods = METRIC_MODULES[metric]||[];
+  return CATALOG.filter(t=> mods.includes(t.module));
+}
+function metricHasScenarios(metric){ return SCENARIOS.some(s=> s.metric===metric); }
+
+/* ---------- Отрисовка ---------- */
+let REPORT=null, THRESHOLD=8.0, SELECTED=new Set();
+
+function esc(s){ const d=document.createElement('div'); d.textContent=s==null?'':String(s); return d.innerHTML; }
+function scoreColor(v){
+  if(v==null) return '#9a93b5';
+  if(v<7) return 'var(--bad)';
+  if(v<8) return 'var(--warn)';
+  if(v<8.5) return '#3fa66d';
+  return 'var(--ok)';
+}
+function scoreBg(v){
+  if(v==null) return '#efeff4';
+  if(v<7) return 'var(--bad-bg)';
+  if(v<8) return 'var(--warn-bg)';
+  return 'var(--ok-bg)';
+}
+function stackHtml(groups, colors){
+  const total = groups.reduce((a,g)=>a+g.pct,0)||100;
+  return '<div class="stack">' + groups.map((g,i)=>`<div style="width:${100*g.pct/total}%; background:${colors[i]};"></div>`).join('') + '</div>';
+}
+const GC = ['#d64550','#e0a11a','#2fae6e'];
+
+function renderSummary(R){
+  const eng = R.engGroups, loy = R.loyGroups, sat = R.satGroups, npg = R.npsGroups;
+  const engIdx = eng ? Math.round((eng[1].pct+eng[2].pct)*10)/10 : null;
+  const loyIdx = loy ? Math.round((loy[1].pct+loy[2].pct)*10)/10 : null;
+  const satIdx = sat ? Math.round((sat[1].pct+sat[2].pct)*10)/10 : null;
+  document.getElementById('unitLine').textContent =
+    (R.unit? 'Подразделение: '+R.unit+'. ' : '') + (R.cycle? 'Период: '+R.cycle.replace(/\.$/,'')+'. ' : '') +
+    (R.participation? `Участие: ${R.participation.voted} из ${R.participation.total} (${R.participation.pct}%).` : '');
+  const cells = [];
+  const cell = (lbl,val,sub)=>`<div class="idx"><div class="lbl">${lbl}</div><div class="val">${val}</div><div class="grp">${sub||''}</div></div>`;
+  cells.push(cell('Индекс вовлечённости', engIdx!=null? engIdx+'%':'—', eng? `${eng[2].pct}% вовлечённых · ${eng[1].pct}% слабо · ${eng[0].pct}% невовлечённых`:''));
+  cells.push(cell('Индекс лояльности', loyIdx!=null? loyIdx+'%':'—', loy? `${loy[2].pct}% лояльных · ${loy[1].pct}% слабо · ${loy[0].pct}% нелояльных`:''));
+  cells.push(cell('eNPS', R.eNPS!=null? (R.eNPS>0?'+':'')+R.eNPS+'%':'—', npg? `${npg[2].pct}% промоутеров · ${npg[1].pct}% скептиков · ${npg[0].pct}% критиков`:''));
+  cells.push(cell('Удовлетворённость', satIdx!=null? satIdx+'%':'—', sat? `${sat[2].pct}% высокая · ${sat[1].pct}% средняя · ${sat[0].pct}% низкая`:''));
+  document.getElementById('idxGrid').innerHTML = cells.join('');
+  const det = [];
+  if(npg) det.push(`<div style="margin-bottom:8px;"><b>Группы eNPS:</b> ${stackHtml(npg,GC)}<div class="legend">${npg.map((g,i)=>`<span><i style="background:${GC[i]}"></i>${g.name} — ${g.pct}%</span>`).join('')}</div></div>`);
+  if(eng) det.push(`<div style="margin-bottom:8px;"><b>Группы вовлечённости:</b> ${stackHtml(eng,GC)}<div class="legend">${eng.map((g,i)=>`<span><i style="background:${GC[i]}"></i>${g.name} — ${g.pct}%</span>`).join('')}</div></div>`);
+  document.getElementById('groupDetails').innerHTML = det.join('');
+}
+
+function renderMetrics(R, thr){
+  const prs = R.priorities||{};
+  const maxImp = Math.max(10, ...METRICS.map(m=> (prs[m.name]||{}).importance||0));
+  const rows = METRICS.map(m=>{
+    const mm = R.metrics && R.metrics[m.name];
+    const pr = prs[m.name];
+    const score = mm? mm.score : (pr? pr.score : null);
+    const imp = pr? pr.importance : null;
+    const weak = mm ? mm.subs.filter(s=> s.score!=null && s.score<thr) : [];
+    const scoreCell = score!=null
+      ? `<span class="score-pill" style="background:${scoreColor(score)};">${score.toFixed(1)}</span>`
+      : '<span class="tag gray">нет данных</span>';
+    const impCell = imp!=null
+      ? `<div style="display:flex;align-items:center;gap:8px;"><div class="imp-bar"><span style="width:${100*imp/maxImp}%"></span></div><b>${imp}%</b></div>`
+      : '<span class="tag gray">—</span>';
+    const flags = [];
+    if(imp!=null && imp>=30) flags.push('<span class="tag red">приоритет сотрудников</span>');
+    if(score!=null && score<thr) flags.push(`<span class="tag orange">ниже порога (${thr})</span>`);
+    if(!metricHasScenarios(m.name)) flags.push('<span class="tag gray">нет сценариев в матрице</span>');
+    const subsHtml = mm ? `<details class="subs"><summary>Субметрики (${mm.subs.filter(s=>s.score!=null).length})</summary>
+      <div class="subs-grid">${mm.subs.map(s=> s.score==null? '' :
+        `<div class="sub-chip" style="background:${scoreBg(s.score)};">${esc(s.name)} — <b style="color:${scoreColor(s.score)};">${s.score.toFixed(1)}</b></div>`).join('')}</div>
+      ${weak.length? `<div style="font-size:12.5px;color:var(--warn);margin-top:6px;">Ниже порога: ${weak.map(s=>esc(s.name)+' ('+s.score.toFixed(1)+')').join(', ')}</div>`:''}
+    </details>` : '';
+    return `<tr><td><b>${m.name}</b><div style="margin-top:3px;">${flags.join(' ')}</div>${subsHtml}</td><td>${scoreCell}</td><td>${impCell}</td></tr>`;
+  }).join('');
+  document.getElementById('metricsTable').innerHTML =
+    `<table><thead><tr><th>Метрика</th><th style="width:90px;">Ср. балл</th><th style="width:220px;">Важность для сотрудников</th></tr></thead><tbody>${rows}</tbody></table>`;
+
+  // «на что можем повлиять»
+  const influenceable = METRICS.filter(m=>{
+    const pr = prs[m.name], mm = R.metrics && R.metrics[m.name];
+    const score = mm? mm.score : (pr?pr.score:null);
+    const imp = pr? pr.importance:0;
+    return metricHasScenarios(m.name) && (imp>=15 || (score!=null && score<thr));
+  });
+  const noTools = METRICS.filter(m=> !metricHasScenarios(m.name) && ((prs[m.name]||{}).importance||0)>=15);
+  let note = '<b>Метрики, на которые можно повлиять инструментами компании:</b><div style="margin-top:6px;">'
+    + (influenceable.length? influenceable.map(m=>`<span class="tag">${m.name}${(prs[m.name]||{}).importance? ' · важно '+prs[m.name].importance+'%':''}</span>`).join('') : '<span class="tag gray">по заданному порогу явных кандидатов нет — снизьте порог или ориентируйтесь на план</span>')
+    + '</div>';
+  if(noTools.length) note += `<div class="noTools">Для метрик ${noTools.map(m=>'«'+m.name+'»').join(', ')} в матрице нет готовых сценариев. Ориентир: работа с целями и видением команды (командный коучинг / фасилитация из каталога «Развитие команд»).</div>`;
+  document.getElementById('influenceNote').innerHTML = note;
+}
+
+function renderTools(R, thr){
+  const shares = groupShares(R);
+  const scored = SCENARIOS.map(s=>({s, score:scoreScenario(s,R,thr,shares)}))
+    .sort((a,b)=>b.score-a.score);
+  const wrap = document.getElementById('toolList');
+  wrap.innerHTML = scored.map(({s, score})=>{
+    const tools = catalogFor(s.metric);
+    const links = tools.length
+      ? tools.map(t=>`<a href="${esc(t.link||'#')}" target="_blank" ${t.link?'':'onclick="return false" style="color:#999;text-decoration:none;cursor:default;"'}>↗ ${esc(t.name)}</a>`).join('')
+        + `<div class="mod">${[...new Set(tools.map(t=>t.module))].join(' · ')}</div>`
+      : '<div class="mod" style="color:var(--warn)">инструменты в каталоге не привязаны — уточните у HR</div>';
+    const on = SELECTED.has(s.when);
+    const infl = [`MPS ${s.infl.MPS}/3`, `eNPS ${s.infl.eNPS}/3`, `tNPS ${s.infl.tNPS}/3`].map(x=>`<span class="tag gray">${x}</span>`).join('');
+    return `<div class="tool ${on?'on':''}" data-when="${esc(s.when)}">
+      <button class="pick" data-when="${esc(s.when)}">${on?'✓ В плане':'+ В план'}</button>
+      <h4>${esc(s.when)}</h4>
+      <div><span class="tag">${esc(s.metric)}</span>${s.quick?'<span class="tag green">быстрая победа</span>':''}
+        <span class="tag orange">скорость: ${esc(s.speed)} мес</span><span class="tag gray">сложность ${s.complexity}/3</span></div>
+      <div style="margin-top:6px;">${infl}</div>
+      <div class="meta">Эффект: ${esc(s.effect)}. Группы: ${esc(s.groups.join(', '))}.</div>
+      <div class="links">${links}</div>
+      <div class="why">Почему: приоритет метрики ${(R.priorities&&R.priorities[s.metric]||{}).importance||0}% · итоговый балл подбора ${score.toFixed(1)}</div>
+    </div>`;
+  }).join('');
+  wrap.querySelectorAll('.pick').forEach(b=>{
+    b.onclick = ()=>{
+      const w = b.dataset.when;
+      if(SELECTED.has(w)) SELECTED.delete(w); else SELECTED.add(w);
+      renderTools(REPORT, THRESHOLD); renderPlan(REPORT, THRESHOLD);
+    };
+  });
+}
+
+function planText(R){
+  const L = [];
+  L.push('ПЛАН РАБОТЫ С ПОДРАЗДЕЛЕНИЕМ' + (R.unit? ' — '+R.unit : ''));
+  if(R.cycle) L.push('По результатам Happy Job, '+R.cycle);
+  if(R.participation) L.push(`Участие в опросе: ${R.participation.voted} из ${R.participation.total} (${R.participation.pct}%)`);
+  L.push('');
+  PHASES.forEach((ph,pi)=>{
+    const items = [...SELECTED].map(w=>SCENARIOS.find(s=>s.when===w)).filter(s=>s && phaseOf(s.speed)===pi);
+    if(!items.length) return;
+    L.push('=== '+ph.t.toUpperCase()+' ('+ph.w+') ===');
+    items.forEach((s,i)=>{
+      L.push(`${i+1}. ${s.when.charAt(0).toUpperCase()+s.when.slice(1)}`);
+      L.push(`   Метрика-цель: ${s.metric}. Влияние: MPS ${s.infl.MPS}/3, eNPS ${s.infl.eNPS}/3, tNPS ${s.infl.tNPS}/3.`);
+      L.push(`   Срок: ~${s.speed} мес. Сложность: ${s.complexity}/3.${s.quick? ' Быстрая победа.':''}`);
+      const tools = catalogFor(s.metric);
+      if(tools.length) L.push('   Инструменты: ' + tools.map(t=>t.name+(t.link?' ('+t.link+')':'')).join('; '));
+      const m = R.metrics && R.metrics[s.metric];
+      const weak = m? m.subs.filter(x=>x.score!=null && x.score<THRESHOLD).map(x=>x.name+' ('+x.score.toFixed(1)+')') : [];
+      L.push(`   Контроль: рост метрики «${s.metric}»` + (m&&m.score!=null? ` (текущий балл ${m.score.toFixed(1)})`:'') + (weak.length? `; субметрики: ${weak.join(', ')}`:'') + ' — по следующему циклу HJ.');
+      L.push('');
+    });
+  });
+  return L.join('\n');
+}
+
+function renderPlan(R, thr){
+  const body = [];
+  let any = false;
+  PHASES.forEach((ph,pi)=>{
+    const items = [...SELECTED].map(w=>SCENARIOS.find(s=>s.when===w)).filter(s=>s && phaseOf(s.speed)===pi);
+    if(!items.length) return;
+    any = true;
+    body.push(`<div class="phase"><h3>${ph.t} <span class="when">— ${ph.w}</span></h3>` +
+      items.map(s=>{
+        const m = R.metrics && R.metrics[s.metric];
+        const weak = m? m.subs.filter(x=>x.score!=null && x.score<thr).map(x=>esc(x.name)+' ('+x.score.toFixed(1)+')') : [];
+        const tools = catalogFor(s.metric);
+        return `<div class="plan-item">
+          <div class="act">${esc(s.when.charAt(0).toUpperCase()+s.when.slice(1))}</div>
+          <div class="row"><b>Метрика-цель:</b> ${esc(s.metric)}${m&&m.score!=null? ` (текущий балл <b style="color:${scoreColor(m.score)};">${m.score.toFixed(1)}</b>)`:''} · <b>срок:</b> ~${esc(s.speed)} мес · <b>сложность:</b> ${s.complexity}/3${s.quick?' · <span class="tag green">быстрая победа</span>':''}</div>
+          ${tools.length? `<div class="row"><b>Инструменты:</b> ${tools.map(t=> t.link? `<a href="${esc(t.link)}" target="_blank">${esc(t.name)}</a>` : esc(t.name)).join(' · ')}</div>`:''}
+          ${weak.length? `<div class="row"><b>Контроль:</b> рост субметрик ${weak.join(', ')} — по следующему циклу HJ.</div>` : `<div class="row"><b>Контроль:</b> рост метрики «${esc(s.metric)}» — по следующему циклу HJ.</div>`}
+        </div>`;
+      }).join('') + '</div>');
+  });
+  if(!any) body.push('<p class="sub">Не выбрано ни одного действия. Отметьте карточки «В план» в разделе 2 или нажмите «Автоотбор».</p>');
+  document.getElementById('planBody').innerHTML = body.join('');
+}
+
+function renderAll(){
+  if(!REPORT) return;
+  renderSummary(REPORT);
+  renderMetrics(REPORT, THRESHOLD);
+  renderTools(REPORT, THRESHOLD);
+  renderPlan(REPORT, THRESHOLD);
+  const wb = document.getElementById('warnbox');
+  wb.style.display = REPORT.warnings.length? 'block':'none';
+  wb.innerHTML = '<b>Замечания при разборе отчёта:</b> ' + REPORT.warnings.map(esc).join('; ');
+}
+
+/* ---------- Автоотбор ---------- */
+function autoPick(){
+  const shares = groupShares(REPORT);
+  const scored = SCENARIOS.map(s=>({s, score:scoreScenario(s,REPORT,THRESHOLD,shares)})).sort((a,b)=>b.score-a.score);
+  const picked = new Set(scored.slice(0,6).map(x=>x.s.when));
+  // гарантируем лучший сценарий для каждой метрики, важной для сотрудников (>=30%)
+  const prs = REPORT.priorities||{};
+  Object.entries(prs).sort((a,b)=>b[1].importance-a[1].importance).forEach(([met,pr])=>{
+    if(pr.importance < 30) return;
+    const best = scored.find(x=> x.s.metric===met && !picked.has(x.s.when));
+    if(best) picked.add(best.s.when);
+  });
+  SELECTED = picked;
+  renderTools(REPORT, THRESHOLD); renderPlan(REPORT, THRESHOLD);
+}
+
+/* ---------- Загрузка файла ---------- */
+const drop = document.getElementById('drop'), fileInput = document.getElementById('file'), status = document.getElementById('status');
+drop.onclick = ()=> fileInput.click();
+drop.ondragover = e=>{ e.preventDefault(); drop.classList.add('hover'); };
+drop.ondragleave = ()=> drop.classList.remove('hover');
+drop.ondrop = e=>{ e.preventDefault(); drop.classList.remove('hover'); if(e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]); };
+fileInput.onchange = ()=>{ if(fileInput.files[0]) handleFile(fileInput.files[0]); };
+
+async function handleFile(f){
+  if(!/\.pdf$/i.test(f.name)){ status.innerHTML = '<span class="err">Нужен PDF-файл отчёта Happy Job.</span>'; return; }
+  status.textContent = 'Читаю и разбираю отчёт…';
+  try{
+    const buf = await f.arrayBuffer();
+    const R = await parsePdf(buf);
+    if(!R.metrics && !R.engGroups && !R.npsGroups){
+      status.innerHTML = '<span class="err">Не удалось распознать отчёт. Проверьте, что это PDF-выгрузка результатов Happy Job по подразделению.</span>';
+      return;
+    }
+    REPORT = R; SELECTED = new Set();
+    document.getElementById('report').hidden = false;
+    autoPick();
+    renderAll();
+    status.innerHTML = 'Отчёт обработан: <b>'+esc(f.name)+'</b>. Можно загрузить другой файл — данные обновятся.';
+    document.getElementById('report').scrollIntoView({behavior:'smooth'});
+  }catch(e){
+    status.innerHTML = '<span class="err">Ошибка при обработке PDF: '+esc(e.message)+'</span>';
+  }
+}
+
+document.getElementById('thr').oninput = e=>{
+  THRESHOLD = parseFloat(e.target.value);
+  document.getElementById('thrVal').textContent = THRESHOLD.toFixed(1);
+  if(REPORT){ renderMetrics(REPORT, THRESHOLD); renderTools(REPORT, THRESHOLD); renderPlan(REPORT, THRESHOLD); }
+};
+document.getElementById('autoPick').onclick = autoPick;
+document.getElementById('printBtn').onclick = ()=> window.print();
+document.getElementById('copyBtn').onclick = async e=>{
+  try{ await navigator.clipboard.writeText(planText(REPORT)); e.target.textContent='Скопировано ✓'; setTimeout(()=>e.target.textContent='Скопировать план текстом',1800); }
+  catch(_){ alert(planText(REPORT)); }
+};
+</script>
+</body>
+</html>
