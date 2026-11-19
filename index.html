@@ -308,6 +308,7 @@ this.pdfMake = this.pdfMake || {}; this.pdfMake.vfs = {
       </div>
       <div class="btnrow">
         <button class="act" id="pdfBtn">Скачать план в PDF</button>
+        <button class="act ghost" id="htmlBtn">Скачать план в HTML</button>
         <button class="act ghost" id="copyBtn">Скопировать план текстом</button>
       </div>
     </section>
@@ -917,6 +918,75 @@ function buildPdf(R){
   }).download('План Happy Job — '+(R.unit||'подразделение')+'.pdf');
 }
 
+/* ---------- Сохранение плана в HTML (самодостаточный файл, открывается в любом браузере) ---------- */
+function buildPlanHtml(R){
+  if(!R) return;
+  const escH = s => String(s==null? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  const meta = [];
+  if(R.cycle) meta.push(escH('по результатам Happy Job, '+R.cycle));
+  if(R.participation) meta.push(`участие: ${R.participation.voted} из ${R.participation.total} (${R.participation.pct}%)`);
+  if(R.eNPS!=null) meta.push(`eNPS ${(R.eNPS>0?'+':'')+R.eNPS}%`);
+  const sections = [];
+  PHASES.forEach((ph,pi)=>{
+    const items = [...SELECTED].map(w=>SCENARIOS.find(s=>s.when===w)).filter(s=>s && phaseOf(s.speed)===pi);
+    if(!items.length) return;
+    sections.push(`<h2>${escH(ph.t)} <span class="when">— ${escH(ph.w)}</span></h2>` +
+      items.map(s=>{
+        const m = R.metrics && R.metrics[s.metric];
+        const weak = m? m.subs.filter(x=>x.score!=null && x.score<THRESHOLD).map(x=>escH(x.name)+' ('+x.score.toFixed(1)+')') : [];
+        const tools = catalogFor(s.metric);
+        return `<div class="item">
+          <div class="act">${escH(s.when.charAt(0).toUpperCase()+s.when.slice(1))}</div>
+          <div><b>Метрика-цель:</b> ${escH(dname(s.metric))}${m&&m.score!=null? ` (текущий балл ${m.score.toFixed(1)})`:''} · <b>срок:</b> ~${escH(s.speed)} мес · <b>сложность:</b> ${s.complexity}/3${s.quick? ' · быстрая победа':''}</div>
+          <div><b>Ответственный:</b> ${escH(ownerFor(s))}</div>
+          ${tools.length? `<div><b>Инструменты:</b> ${tools.map(t=> t.link? `<a href="${escH(t.link)}" target="_blank">${escH(t.name)}</a>` : escH(t.name)).join(' · ')}</div>`:''}
+          <div><b>Как измеряем:</b> рост метрики «${escH(dname(s.metric))}»${m&&m.score!=null? ` с ${m.score.toFixed(1)} до ≥ ${THRESHOLD.toFixed(1)}`:''}${weak.length? `; субметрики: ${weak.join(', ')}`:''}.</div>
+          <div><b>Повторный замер:</b> следующий цикл Happy Job.</div>
+        </div>`;
+      }).join(''));
+  });
+  if(!sections.length) sections.push('<p class="muted">Не выбрано ни одного действия для плана.</p>');
+  const guide = ['Покажите результаты команде — презентация итогов внутри подразделения.',
+    'Совместно выберите 3–6 субметрик, на которые можно повлиять на уровне подразделения.',
+    'Составьте план работ в подразделении (этот план) и отредактируйте под свою команду.',
+    'Закрепите ответственных и сроки в системе Happy Job.',
+    'Выберите 3 субметрики уровня компании и зафиксируйте их с вашим HR BP.',
+    'Поставьте встречи раз в квартал с вашим HR BP для оценки следования плану.'];
+  const doc = `<!DOCTYPE html>
+<html lang="ru"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>План работы с подразделением${R.unit? ' — '+escH(R.unit):''}</title>
+<style>
+ body{font-family:'Segoe UI',system-ui,Arial,sans-serif;color:#241c3f;background:#f4f2fa;margin:0;padding:24px;}
+ .wrap{max-width:900px;margin:0 auto;background:#fff;border:1px solid #e4e0f2;border-radius:14px;padding:28px 32px;}
+ h1{font-size:22px;margin:0 0 4px;}
+ .meta{color:#6b6390;font-size:13px;margin-bottom:18px;}
+ h2{font-size:17px;margin:22px 0 10px;color:#4b1fb8;}
+ h2 .when{color:#6b6390;font-weight:400;font-size:14px;}
+ .item{border-left:4px solid #a259ff;background:#faf9ff;border-radius:0 10px 10px 0;padding:12px 16px;margin-bottom:10px;font-size:14px;line-height:1.5;}
+ .item .act{font-weight:700;font-size:15px;margin-bottom:4px;}
+ .item div{margin-top:3px;}
+ a{color:#6e3ae7;}
+ .guide{border:1px solid #e4e0f2;border-radius:12px;padding:14px 16px;margin-top:20px;background:#fbfaff;font-size:14px;}
+ .guide ol{margin:8px 0 0 18px;}
+ .guide li{margin:4px 0;}
+ .foot{color:#6b6390;font-size:12px;margin-top:22px;}
+ .muted{color:#6b6390;}
+</style></head><body><div class="wrap">
+<h1>План работы с подразделением${R.unit? ' — '+escH(R.unit):''}</h1>
+<div class="meta">${meta.join('  ·  ')}</div>
+${sections.join('\n')}
+<div class="guide"><b>Что дальше — план действий по гайду компании</b><ol>${guide.map(g=>'<li>'+g+'</li>').join('')}</ol></div>
+<div class="foot">Сформировано помощником по результатам Happy Job. Источник: матрица «Инструменты развития (V1)», каталог инструментов компании и гайд «Happy Job для руководителей». Повторный замер метрик — в следующем цикле Happy Job.</div>
+</div></body></html>`;
+  const blob = new Blob([doc], {type:'text/html;charset=utf-8'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'План Happy Job — '+(R.unit||'подразделение')+'.html';
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(a.href), 5000);
+}
+
 /* ---------- Загрузка файла ---------- */
 const drop = document.getElementById('drop'), fileInput = document.getElementById('file'), status = document.getElementById('status');
 drop.onclick = ()=> fileInput.click();
@@ -975,6 +1045,7 @@ document.getElementById('metricSort').onchange = e=>{
 };
 document.getElementById('autoPick').onclick = autoPick;
 document.getElementById('pdfBtn').onclick = ()=> buildPdf(REPORT);
+document.getElementById('htmlBtn').onclick = ()=> buildPlanHtml(REPORT);
 document.getElementById('copyBtn').onclick = async e=>{
   try{ await navigator.clipboard.writeText(planText(REPORT)); e.target.textContent='Скопировано ✓'; setTimeout(()=>e.target.textContent='Скопировать план текстом',1800); }
   catch(_){ alert(planText(REPORT)); }
