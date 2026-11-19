@@ -48,6 +48,9 @@ this.pdfMake = this.pdfMake || {}; this.pdfMake.vfs = {
 <!-- PDF-гайды компании (build_app.py, метка __MATB64__): встраиваются base64 только в офлайн-файл;
      в онлайн-версии гайды лежат рядом в папке materials/ и скачиваются по ссылке. -->
 
+<!-- База пути к папке materials/ (метка ): пусто для сайта (файлы рядом),
+     полный URL GitHub Pages — для лёгкой копии сайта отдельным файлом. -->
+<script>var MAT_BASE = "";</script>
 <style>
   :root{
     --bg:#f4f2fa; --card:#ffffff; --ink:#241c3f; --muted:#6b6390;
@@ -1056,8 +1059,8 @@ document.querySelectorAll('.mat-btn').forEach(btn=>{
         setTimeout(()=>URL.revokeObjectURL(a.href), 5000);
       }catch(_){ alert('Не удалось подготовить файл. Скачайте версию для сайта или обратитесь к HR BP.'); return; }
     } else {
-      // онлайн: файл лежит в папке materials рядом со страницей
-      a.href = 'materials/' + encodeURIComponent(info.file);
+      // онлайн: файл лежит в папке materials (на сайте — рядом, в копии сайта — на GitHub Pages)
+      a.href = (typeof MAT_BASE !== 'undefined' ? MAT_BASE : '') + 'materials/' + encodeURIComponent(info.file);
     }
     a.download = info.file;
     document.body.appendChild(a); a.click(); a.remove();
