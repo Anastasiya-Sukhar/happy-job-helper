@@ -1059,8 +1059,18 @@ document.querySelectorAll('.mat-btn').forEach(btn=>{
         setTimeout(()=>URL.revokeObjectURL(a.href), 5000);
       }catch(_){ alert('Не удалось подготовить файл. Скачайте версию для сайта или обратитесь к HR BP.'); return; }
     } else {
-      // онлайн: файл лежит в папке materials (на сайте — рядом, в копии сайта — на GitHub Pages)
-      a.href = (typeof MAT_BASE !== 'undefined' ? MAT_BASE : '') + 'materials/' + encodeURIComponent(info.file);
+      // онлайн: файл в папке materials (на сайте — рядом, в копии сайта — на GitHub Pages).
+      // Скачиваем через fetch и отдаём как файл; если не вышло (нет сети/CORS) — открываем прямую ссылку.
+      const url = (typeof MAT_BASE !== 'undefined' ? MAT_BASE : '') + 'materials/' + encodeURIComponent(info.file);
+      fetch(url).then(r=>{ if(!r.ok) throw new Error(r.status); return r.blob(); })
+        .then(blob=>{
+          const el = document.createElement('a');
+          el.href = URL.createObjectURL(blob); el.download = info.file;
+          document.body.appendChild(el); el.click(); el.remove();
+          setTimeout(()=>URL.revokeObjectURL(el.href), 5000);
+        })
+        .catch(()=>{ window.open(url, '_blank'); });
+      return;
     }
     a.download = info.file;
     document.body.appendChild(a); a.click(); a.remove();
