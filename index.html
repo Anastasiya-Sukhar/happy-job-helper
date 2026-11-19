@@ -166,10 +166,6 @@ this.pdfMake = this.pdfMake || {}; this.pdfMake.vfs = {
   .ctrl{display:flex; align-items:center; gap:12px; margin:6px 0 16px; font-size:14px; flex-wrap:wrap;}
   .ctrl input[type=range]{width:190px;}
   .warnbox{background:var(--warn-bg); color:#7a4b00; border-radius:10px; padding:10px 14px; font-size:13px; margin-bottom:14px; display:none;}
-  /* ---------- FAQ ---------- */
-  .faq details{border:1px solid var(--line); border-radius:10px; padding:10px 14px; margin-bottom:8px; background:#fbfaff;}
-  .faq summary{cursor:pointer; font-weight:600; font-size:14px;}
-  .faq p{font-size:13.5px; color:var(--muted); margin-top:8px;}
   footer{max-width:1120px; margin:0 auto; padding:0 20px 40px; color:var(--muted); font-size:12px;}
   /* ---------- Адаптивность ---------- */
   @media (max-width:860px){
@@ -204,7 +200,6 @@ this.pdfMake = this.pdfMake || {}; this.pdfMake.vfs = {
   <a href="#tools" class="off">4 · Инструменты</a>
   <a href="#plan" class="off">5 · План</a>
   <a href="#materials">Материалы</a>
-  <a href="#faq">Вопросы</a>
 </nav>
 
 <main>
@@ -261,7 +256,7 @@ this.pdfMake = this.pdfMake || {}; this.pdfMake.vfs = {
     <section class="card" id="metrics">
       <h2><span class="num">3</span>Метрики: на что влиять</h2>
       <p class="sub">10 метрик вовлечённости Happy Job (каждая собирается из 5 субметрик-вопросов, балл — средний по сотрудникам, шкала 1–10).
-      <b>Важность</b> — доля сотрудников, отметивших метрику как приоритетную для улучшения. <b>До порога</b> — отставание балла от порога внимания.</p>
+      <b>Важность</b> — доля сотрудников, отметивших метрику как приоритетную для улучшения (каждый сотрудник выбирает до 3 областей — метку «приоритет сотрудников» получают три самые запрашиваемые метрики). <b>До порога</b> — отставание балла от порога внимания.</p>
       <div class="ctrl">
         <label for="thr">Порог внимания по баллу: <b id="thrVal">8.0</b></label>
         <input type="range" id="thr" min="7" max="9" step="0.1" value="8">
@@ -327,25 +322,6 @@ this.pdfMake = this.pdfMake || {}; this.pdfMake.vfs = {
       <li>Фрейм проведения встречи в команде «Мастерская по работе с вовлечённостью»</li>
       <li>Цикл вебинаров о работе с вовлечённостью</li>
     </ul>
-  </section>
-
-  <!-- ========== ЧАСТЫЕ ВОПРОСЫ ========== -->
-  <section class="card faq" id="faq">
-    <h2>Частые вопросы</h2>
-    <details><summary>Что это за метрики?</summary>
-      <p>Happy Job измеряет вовлечённость по 10 метрикам (Руководитель, Стратегия, Признание, Обратная связь, Процессы, Изменения, Коллеги, Баланс, Карьера, Условия и оплата). Каждая метрика — это 5 субметрик-вопросов; итоговый балл считается по ответам всех сотрудников по шкале 1–10.</p></details>
-    <details><summary>Откуда берётся «порог внимания»?</summary>
-      <p>Это настройка под вас: балл, ниже которого метрика считается зоной внимания. По умолчанию 8.0 — уровень «хорошо» по шкале Happy Job. Двигая ползунок, вы управляете тем, какие метрики и субметрики подсвечиваются и попадают в автоотбор плана.</p></details>
-    <details><summary>Можно ли доверять рекомендациям?</summary>
-      <p>Подбор основан на двух источниках: вашем отчёте (баллы, приоритеты, состав групп) и матрице компании «Инструменты развития (V1)» — 43 сценария применения с оценкой влияния. Это обоснованная отправная точка, но финальное решение и контекст команды — за руководителем.</p></details>
-    <details><summary>Куда уходят данные моего отчёта?</summary>
-      <p>Никуда. PDF разбирается прямо в браузере, отправки на сервер нет. Интернет вообще не нужен — все библиотеки встроены в страницу, а сам файл можно открыть локально с компьютера.</p></details>
-    <details><summary>Как часто обновлять план?</summary>
-      <p>После каждого цикла Happy Job: загрузите свежий отчёт, сравните баллы с прошлым планом и соберите новый. Обычно циклы проходят раз в полгода или год.</p></details>
-    <details><summary>Как помощник связан с гайдом компании?</summary>
-      <p>Помощник автоматизирует «План действий» из гайда «Happy Job для руководителей»: выбор 3–6 субметрик для работы и составление плана. Бенчмарки компании в сводке — из итогов исследования 2024 года: вовлечённость 91,6%, лояльность 88,5%, eNPS 54,0%, mNPS 69,9%, удовлетворённость 93,5%.</p></details>
-    <details><summary>Почему у некоторых метрик нет инструментов?</summary>
-      <p>В матрице компании пока нет готовых сценариев для части метрик (например, «Стратегия»). Для них помощник подсказывает общий ориентир — работа с целями и видением команды.</p></details>
   </section>
 
   <div class="warnbox" id="warnbox"></div>
@@ -568,6 +544,15 @@ function catalogFor(metric){
   return CATALOG.filter(t=> mods.includes(t.module));
 }
 function metricHasScenarios(metric){ return SCENARIOS.some(s=> s.metric===metric); }
+/* Топ-приоритеты сотрудников: в опросе Happy Job каждый сотрудник выбирает до 3 областей
+   для улучшения — приоритетными считаем 3 метрики с наибольшей долей отметивших. */
+function topPriorities(R, n=3){
+  const prs = R && R.priorities || {};
+  return Object.entries(prs)
+    .filter(([,p]) => p.importance!=null)
+    .sort((a,b)=> b[1].importance - a[1].importance)
+    .slice(0, n);
+}
 /* Ответственный за пункт плана: зависит от сложности сценария */
 function ownerFor(s){ return s.complexity>=3 ? 'Руководитель подразделения + HR (инструменты компании)' : 'Руководитель подразделения'; }
 
@@ -643,9 +628,8 @@ function renderSummary(R, thr){
     const worstName = METRICS.find(m=> R.metrics[m.name]===worst)?.name || '';
     V.push(`Сильная сторона — «${esc(dname(bestName))}» (${best.score.toFixed(1)}); больше всего внимания требует «${esc(dname(worstName))}» (${worst.score.toFixed(1)})${belowCnt? `, ниже порога ${thr.toFixed(1)} — <b>${belowCnt} ${belowCnt===1?'метрика':'метрики'}</b>`:''}.`);
   }
-  const prs = R.priorities||{};
-  const topPr = Object.entries(prs).sort((a,b)=>b[1].importance-a[1].importance)[0];
-  if(topPr && topPr[1].importance>=20) V.push(`Сотрудники чаще всего просят улучшить «${esc(dname(topPr[0]))}» (${topPr[1].importance}% отметили приоритетом) — имеет смысл начать с неё.`);
+  const top3 = topPriorities(R,3);
+  if(top3.length && top3[0][1].importance>=20) V.push(`Топ-3 приоритета сотрудников: ${top3.map(([n,p])=>`«${esc(dname(n))}» (${p.importance}%)`).join(', ')} — сотрудники чаще всего просят улучшить именно их.`);
   if(R.eNPS!=null){
     V.push(R.eNPS>=50? `eNPS <b>+${R.eNPS}%</b> — большинство сотрудников готовы рекомендовать компанию.`
        : R.eNPS>=0? `eNPS <b>${R.eNPS>0?'+':''}${R.eNPS}%</b> — в целом нейтрально-позитивный фон; есть над чем работать с критиками.`
@@ -666,6 +650,7 @@ function renderSummary(R, thr){
 function renderMetrics(R, thr){
   const prs = R.priorities||{};
   const maxImp = Math.max(10, ...METRICS.map(m=> (prs[m.name]||{}).importance||0));
+  const topPrRank = new Map(topPriorities(R,3).map(([name],i)=> [name,i+1]));
   let order = METRICS.slice();
   const mscore = m=>{ const mm=R.metrics&&R.metrics[m.name], pr=prs[m.name]; return mm? mm.score : (pr? pr.score : null); };
   const mimp = m=> (prs[m.name]? prs[m.name].importance : 0);
@@ -689,7 +674,7 @@ function renderMetrics(R, thr){
       ? `<div style="display:flex; align-items:center; gap:8px;"><div class="imp-bar"><span style="width:${100*imp/maxImp}%"></span></div><b>${imp}%</b></div>`
       : '<span class="tag gray">—</span>';
     const flags = [];
-    if(imp!=null && imp>=30) flags.push('<span class="tag red">приоритет сотрудников</span>');
+    if(topPrRank.has(m.name)) flags.push(`<span class="tag red" title="Одна из трёх самых запрашиваемых метрик подразделения">приоритет сотрудников · №${topPrRank.get(m.name)}</span>`);
     if(below) flags.push(`<span class="tag orange">ниже порога (${thr.toFixed(1)})</span>`);
     if(!metricHasScenarios(m.name)) flags.push('<span class="tag gray">нет сценариев в матрице</span>');
     const subsHtml = mm ? `<details class="subs"><summary>Субметрики (${mm.subs.filter(s=>s.score!=null).length}) — составляющие метрики</summary>
@@ -847,10 +832,9 @@ function autoPick(){
   const scored = SCENARIOS.map(s=>({s, score:scoreScenario(s,REPORT,THRESHOLD,shares)})).sort((a,b)=>b.score-a.score);
   // по гайду компании: 3–6 направлений в работу — поэтому база топ-4 и максимум 6
   const picked = new Set(scored.slice(0,4).map(x=>x.s.when));
-  // гарантируем лучший сценарий для каждой метрики, важной для сотрудников (>=30%), в пределах 6
-  const prs = REPORT.priorities||{};
-  Object.entries(prs).sort((a,b)=>b[1].importance-a[1].importance).forEach(([met,pr])=>{
-    if(pr.importance < 30 || picked.size >= 6) return;
+  // гарантируем лучший сценарий для каждой из топ-3 приоритетов сотрудников, в пределах 6
+  topPriorities(REPORT,3).forEach(([met])=>{
+    if(picked.size >= 6) return;
     const best = scored.find(x=> x.s.metric===met && !picked.has(x.s.when));
     if(best) picked.add(best.s.when);
   });
